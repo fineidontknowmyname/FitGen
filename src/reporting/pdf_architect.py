@@ -25,6 +25,7 @@ from schemas.plan import FitnessPlan
 from schemas.metrics import BodyMetrics
 from schemas.vision import BodyComposition, SWRCategory
 from schemas.content import TransformationRoadmap, PhaseGoal, WeeklyPlan, DailyWorkout
+from schemas.common import Equipment
 
 # ── Brand palette ──────────────────────────────────────────────────────────────
 
@@ -706,7 +707,10 @@ def _build_workout_section(plan: FitnessPlan, styles: dict) -> List:
             data = [["Exercise", "Set", "Reps", "Weight (kg)", "Rest (s)", "Notes"]]
             for workout_exercise in session.exercises:
                 ex = workout_exercise.exercise
-                is_bw = True if (ex.equipment and ex.equipment.lower() == "bodyweight") or (workout_exercise.sets and workout_exercise.sets[0].weight_kg <= 0) else False
+                is_bw = (
+                    Equipment.bodyweight in ex.equipment_needed
+                    or (bool(workout_exercise.sets) and workout_exercise.sets[0].weight_kg <= 0)
+                )
                 
                 for idx, wset in enumerate(workout_exercise.sets, start=1):
                     row = [
