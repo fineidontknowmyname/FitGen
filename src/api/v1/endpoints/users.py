@@ -26,7 +26,7 @@ from api.dependencies import get_current_user
 from core.security import create_access_token, hash_password, verify_password
 from db.models import UserProfileModel, UserRecord
 from db.session import get_db
-from schemas.user import UserProfile, SignupRequest
+from schemas.user import UserProfile, SignupRequest, LoginRequest
 
 log = logging.getLogger(__name__)
 
@@ -185,26 +185,18 @@ async def create_user_profile(
     response_model=None,
 )
 async def login(
-    body: dict,
+    body: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Authenticate a user by email + password.
-    Returns access_token, token_type, user_id, and name on success.
-    Returns 401 on invalid credentials.
-    """
-    email = body.get("email", "")
-    password = body.get("password", "")
-
     result = await db.execute(
-        select(UserProfileModel).where(UserProfileModel.email == email)
+        select(UserProfileModel).where(UserProfileModel.email == body.email)
     )
     row = result.scalar_one_or_none()
 
     if row is None:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    if not verify_password(password, row.hashed_password or ""):
+    if not verify_password(body.password, row.hashed_password or ""):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = create_access_token(row.user_id)
