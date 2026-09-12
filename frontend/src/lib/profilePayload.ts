@@ -39,7 +39,6 @@ export function mapGoal(goal: string): string {
     return GOAL_MAP[goal] ?? 'general_fitness';
 }
 
-// Valid enum values from backend schemas/common.py
 const VALID_EQUIPMENT = ['bodyweight', 'dumbbell', 'barbell', 'resistance_band', 'machine'] as const;
 const VALID_INJURIES = ['shoulder', 'knee', 'back', 'wrist', 'ankle', 'none'] as const;
 
@@ -67,7 +66,7 @@ export function buildProfilePayload(user: FitGenUser | null) {
             biometrics: { age: 25, weight_kg: 70, height_cm: 175, gender: 'male' },
             metrics: { pushup_count: 0, situp_count: 0, squat_count: 0 },
             injuries: [],
-            equipment: ['bodyweight'],
+            equipment_available: ['bodyweight'],
             experience_level: 'beginner',
             fitness_goal: 'general_fitness',
         };

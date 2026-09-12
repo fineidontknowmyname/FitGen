@@ -66,7 +66,7 @@ describe('buildProfilePayload', () => {
         const payload = buildProfilePayload(null);
 
         expect(payload.biometrics).toEqual({ age: 25, weight_kg: 70, height_cm: 175, gender: 'male' });
-        expect(payload.equipment).toEqual(['bodyweight']);
+        expect(payload.equipment_available).toEqual(['bodyweight']);
         expect(payload.injuries).toEqual([]);
     });
 
