@@ -87,10 +87,14 @@ export interface PlanJobPayload {
     transcript_text?: string;
 }
 
-export interface UploadPhotosResult {
-    body_fat_percentage?: number | null;
+export type BodyCompositionSource =
+    'photo_analysis' | 'photo_plus_manual' | 'tape_measurement' | 'self_assessment' | 'unavailable';
+
+export interface BodyCompositionResult {
     fat_pct_low?: number | null;
     fat_pct_high?: number | null;
+    muscle_level?: string | null;
+    muscle_level_confidence?: number;
     v_taper_ratio?: number | null;
     posture_assessment?: string | null;
     is_valid_person?: boolean;
@@ -98,10 +102,29 @@ export interface UploadPhotosResult {
     confidence?: number;
     waist_source?: 'estimated' | 'manual';
     hip_source?: 'estimated' | 'manual';
-    source?: 'photo_analysis' | 'photo_plus_manual' | 'tape_measurement' | 'self_assessment' | 'unavailable';
-    muscle_level_confidence?: number;
+    source?: BodyCompositionSource;
     input_completeness?: 'full' | 'partial';
     [key: string]: unknown;
+}
+
+export type UploadPhotosResult = BodyCompositionResult;
+
+export interface TapeMeasurementPayload {
+    neck_cm: number;
+    waist_cm: number;
+    hip_cm?: number | null;
+    height_cm: number;
+    gender: 'male' | 'female';
+}
+
+export interface SelfAssessmentPayload {
+    visible_muscle_separation: 'none' | 'slight' | 'moderate' | 'defined' | 'very_defined';
+    vascularity: 'none' | 'slight' | 'moderate' | 'high';
+    body_fat_impression: 'not_visible' | 'partially_visible' | 'visible' | 'very_visible';
+    perceived_muscle_mass: 'below_average' | 'average' | 'above_average' | 'well_above_average';
+    experience_level: 'beginner' | 'intermediate' | 'advanced';
+    pushup_count?: number | null;
+    squat_count?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,13 +166,18 @@ export async function downloadPlanPdf(jobId: string): Promise<Blob> {
 
 export async function uploadPhotos(
     front: File,
-    side?: File | null,
-    back?: File | null,
-    heightCm: number = 175,
-    gender: string = 'male',
+    side: File | null | undefined,
+    back: File | null | undefined,
+    heightCm: number,
+    gender: string,
+    consent: boolean,
     waistCm?: number | null,
     hipCm?: number | null,
 ): Promise<UploadPhotosResult> {
+    if (!consent) {
+        throw new Error('Consent is required before photos can be analysed.');
+    }
+
     const form = new FormData();
     form.append('front', front);
     if (side) form.append('side', side);
@@ -164,14 +192,28 @@ export async function uploadPhotos(
         form.append('hip_cm', String(hipCm));
     }
 
-    // Create a separate axios instance without the default Content-Type
-    // so axios can set multipart/form-data with the correct boundary automatically
-    const res = await axios.post<UploadPhotosResult>(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/vision/analyze-body`,
+    const res = await api.post<UploadPhotosResult>(
+        '/api/v1/vision/analyze-body',
         form,
-        {
-            headers: { 'X-Vision-Consent': 'true' },
-        }
+        { headers: { 'Content-Type': undefined, 'X-Vision-Consent': 'true' } }
     );
+    return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// Metrics — tape measurement / self-assessment (non-photo body composition)
+// ---------------------------------------------------------------------------
+
+export async function submitTapeMeasurement(
+    payload: TapeMeasurementPayload
+): Promise<BodyCompositionResult> {
+    const res = await api.post<BodyCompositionResult>('/api/v1/metrics/tape-measurement', payload);
+    return res.data;
+}
+
+export async function submitSelfAssessment(
+    payload: SelfAssessmentPayload
+): Promise<BodyCompositionResult> {
+    const res = await api.post<BodyCompositionResult>('/api/v1/metrics/self-assessment', payload);
     return res.data;
 }

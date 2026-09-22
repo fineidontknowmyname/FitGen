@@ -12,6 +12,8 @@ export interface FitGenUser {
     experience_level?: string;
     body_fat_pct?: string | number | null;
     v_taper?: string | number | null;
+    muscle_level?: string | null;
+    body_composition_source?: string | null;
     pushups_max?: number;
     squats_max?: number;
     pushup_count?: number;

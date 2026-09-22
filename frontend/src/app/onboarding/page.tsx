@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import Header from '@/components/layout/Header';
-import { ArrowLeft, ArrowRight, Upload, Brain, Plus, X } from 'lucide-react';
-import { uploadPhotos } from '@/lib/api';
-import type { UploadPhotosResult } from '@/lib/api';
+import { ArrowLeft, ArrowRight, Plus, X } from 'lucide-react';
+import BodyCompositionStep from '@/components/BodyCompositionStep';
+import type { BodyCompositionResult } from '@/lib/api';
 
 const STEPS = [
     { id: 'biometrics', title: 'Biometrics', description: "Let's get to know your physical stats." },
@@ -44,8 +44,6 @@ interface FormData {
     goal: string; experience: string;
     youtubeUrls: string[];
     equipment: string[]; injuries: string[];
-    frontPhoto: File | null; sidePhoto: File | null; backPhoto: File | null;
-    waistCm: string; hipCm: string;
 }
 
 const DEFAULT: FormData = {
@@ -55,17 +53,13 @@ const DEFAULT: FormData = {
     goal: 'muscle_gain', experience: 'beginner',
     youtubeUrls: [''],
     equipment: [], injuries: [],
-    frontPhoto: null, sidePhoto: null, backPhoto: null,
-    waistCm: '', hipCm: '',
 };
 
 export default function OnboardingPage() {
     const [step, setStep] = useState(0);
     const [form, setForm] = useState<FormData>(DEFAULT);
-    const [analyzing, setAnalyzing] = useState(false);
-    const [result, setResult] = useState<UploadPhotosResult | null>(null);
+    const [result, setResult] = useState<BodyCompositionResult | null>(null);
     const [ageError, setAgeError] = useState('');
-    const [analysisWarning, setAnalysisWarning] = useState<string | null>(null);
 
     const set = (f: keyof FormData, v: unknown) => setForm(p => ({ ...p, [f]: v }));
 
@@ -118,13 +112,15 @@ export default function OnboardingPage() {
                 // FIX 8: persist equipment and injuries
                 equipment_available: form.equipment ?? [],
                 injuries: form.injuries ?? [],
-                // Body composition from vision analysis (if completed)
+                // Body composition from photo/tape/self-assessment (if completed)
                 ...(result ? {
-                    body_fat_pct: result.body_fat_percentage != null
-                        ? `${result.body_fat_percentage}`
+                    body_fat_pct: result.fat_pct_low != null && result.fat_pct_high != null
+                        ? `${result.fat_pct_low}-${result.fat_pct_high}`
                         : existing.body_fat_pct,
+                    muscle_level: result.muscle_level ?? existing.muscle_level,
                     v_taper: result.v_taper_ratio ?? existing.v_taper,
-                    swr_category: (result as Record<string, unknown>).swr_category ?? existing.swr_category,
+                    body_composition_source: result.source ?? existing.body_composition_source,
+                    body_composition: result,
                 } : {}),
             };
 
@@ -132,51 +128,6 @@ export default function OnboardingPage() {
             localStorage.setItem('fitgen_onboarded', 'true');
             window.location.href = '/dashboard';
         }
-    };
-
-    const handleAnalyze = async () => {
-        if (!form.frontPhoto) { alert('Please select a front-view photo.'); return; }
-        setAnalyzing(true);
-        setAnalysisWarning(null);
-        try {
-            const heightCm = Number(form.height) || 175;
-            const waistCm = form.waistCm.trim() ? Number(form.waistCm) : undefined;
-            const hipCm = form.hipCm.trim() ? Number(form.hipCm) : undefined;
-            const res = await uploadPhotos(
-                form.frontPhoto,
-                form.sidePhoto,
-                form.backPhoto,
-                heightCm,
-                form.gender,
-                waistCm,
-                hipCm,
-            );
-            setResult(res);
-            // FIX 3: warn user if pose was not detected
-            if (!res.pose_detected || res.confidence === 0) {
-                setAnalysisWarning(
-                    'Could not detect body pose from photo. Estimated values will be used. ' +
-                    'Try a clear full-body photo with good lighting and a plain background.'
-                );
-            }
-        } catch (err: unknown) {
-            const axiosErr = err as { response?: { status?: number; data?: unknown } };
-            if (axiosErr?.response) {
-                const status = axiosErr.response.status;
-                const detail = axiosErr.response.data;
-                console.error('[Vision] API error', status, detail);
-                if (status === 451) {
-                    alert('Consent required. Please tick the consent checkbox before uploading.');
-                } else if (status === 400) {
-                    alert('Invalid image — please use a JPEG/PNG/WebP file, min 200×200px, max 10MB.');
-                } else {
-                    alert(`Analysis failed (${status}). Check console for details.`);
-                }
-            } else {
-                console.error('[Vision] Network error:', err);
-                alert('Could not reach the analysis server — is the API running?');
-            }
-        } finally { setAnalyzing(false); }
     };
 
     const hoursLabel = (h: number) =>
@@ -361,116 +312,17 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 7 — Photos */}
+                            {/* Step 7 — Body Composition */}
                             {step === 6 && (
-                                <div className="space-y-6">
-                                    {([
-                                        { key: 'frontPhoto' as const, label: 'Front view', required: true },
-                                        { key: 'sidePhoto' as const, label: 'Side view', required: false },
-                                        { key: 'backPhoto' as const, label: 'Back view', required: false },
-                                    ]).map(({ key, label, required }) => (
-                                        <div key={key} className="space-y-2">
-                                            <Label>{label}{required && <span className="text-yellow-500 ml-1">*</span>}</Label>
-                                            <div className="flex items-center gap-3">
-                                                <input type="file" accept="image/jpeg,image/png,image/webp"
-                                                    id={`photo-${key}`} className="hidden"
-                                                    onChange={e => set(key, e.target.files?.[0] ?? null)} />
-                                                <label htmlFor={`photo-${key}`}
-                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 cursor-pointer text-sm transition-colors border border-white/5">
-                                                    <Upload className="w-4 h-4" />
-                                                    {form[key] ? (form[key] as File).name : 'Choose file'}
-                                                </label>
-                                                {form[key] && <span className="text-xs text-green-400">✓</span>}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {/* Image requirements hint */}
-                                    <p className="text-xs text-zinc-500">
-                                        JPG, PNG or WebP · Max 10 MB · Min 200×200 px · Full-body photo recommended
-                                    </p>
-
-                                    {/* Optional manual measurements — combine with photo(s) for better accuracy */}
-                                    <div className="space-y-3 pt-2 border-t border-white/5">
-                                        <div>
-                                            <Label>Manual Measurements <span className="text-xs text-zinc-500 font-normal">(optional — improves accuracy)</span></Label>
-                                            <p className="text-xs text-zinc-500 mt-1">
-                                                Have a tape measure? Add your actual waist/hip circumference and we&apos;ll use it
-                                                instead of estimating it from the photo.
-                                            </p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs">Waist (cm)</Label>
-                                                <Input type="number" placeholder="e.g. 82" min={30} max={250}
-                                                    value={form.waistCm} onChange={e => set('waistCm', e.target.value)} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-xs">Hip (cm)</Label>
-                                                <Input type="number" placeholder="e.g. 98" min={30} max={250}
-                                                    value={form.hipCm} onChange={e => set('hipCm', e.target.value)} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <Button variant="secondary" onClick={handleAnalyze}
-                                        disabled={analyzing || !form.frontPhoto} className="w-full">
-                                        {analyzing ? 'Analysing…' : 'Analyse Photos'}
-                                    </Button>
-                                    {/* FIX 3: pose-detection warning */}
-                                    {analysisWarning && (
-                                        <div className="flex gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm text-yellow-400">
-                                            <span>⚠️</span>
-                                            <p>{analysisWarning}</p>
-                                        </div>
-                                    )}
-                                    {result && (
-                                        <div className="bg-zinc-900/50 border border-yellow-500/20 rounded-xl p-6 space-y-4">
-                                            <div className="flex items-center gap-2">
-                                                <Brain className="w-5 h-5 text-yellow-500" />
-                                                <h4 className="font-semibold">AI Analysis Results</h4>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="bg-black/40 p-3 rounded-lg">
-                                                    <span className="text-xs text-zinc-500 block">
-                                                        Est. Body Fat
-                                                        {result.waist_source === 'manual' && (
-                                                            <span className="text-green-400 ml-1">(measured)</span>
-                                                        )}
-                                                    </span>
-                                                    <span className="text-xl font-bold">
-                                                        {result.fat_pct_low != null && result.fat_pct_high != null
-                                                            ? `${result.fat_pct_low}–${result.fat_pct_high}%`
-                                                            : result.fat_pct_low != null
-                                                                ? `~${result.fat_pct_low}%`
-                                                                : '--'}
-                                                    </span>
-                                                </div>
-                                                <div className="bg-black/40 p-3 rounded-lg">
-                                                    <span className="text-xs text-zinc-500 block">
-                                                        V-Taper Ratio
-                                                        {result.hip_source === 'manual' && (
-                                                            <span className="text-green-400 ml-1">(measured)</span>
-                                                        )}
-                                                    </span>
-                                                    <span className="text-xl font-bold">{result.v_taper_ratio ?? '--'}</span>
-                                                </div>
-                                            </div>
-                                            {(result.waist_source === 'manual' || result.hip_source === 'manual') && (
-                                                <p className="text-xs text-zinc-500">
-                                                    Values marked &ldquo;measured&rdquo; use your manual measurement instead of the
-                                                    photo estimate.
-                                                </p>
-                                            )}
-                                            {result.posture_assessment && (
-                                                <p className="text-sm"><span className="text-zinc-500">Posture: </span>{result.posture_assessment}</p>
-                                            )}
-                                        </div>
-                                    )}
-                                    <div className="flex gap-2 p-4 bg-zinc-950 rounded-lg text-sm text-zinc-400">
-                                        <span>🔒</span>
-                                        <p>Photos are processed privately on-device and never shared.</p>
-                                    </div>
-                                </div>
+                                <BodyCompositionStep
+                                    heightCm={Number(form.height) || 175}
+                                    gender={form.gender}
+                                    experienceLevel={form.experience}
+                                    pushupCount={form.pushups.trim() ? Number(form.pushups) : undefined}
+                                    squatCount={form.squats.trim() ? Number(form.squats) : undefined}
+                                    result={result}
+                                    onResult={setResult}
+                                />
                             )}
 
                         </motion.div>
