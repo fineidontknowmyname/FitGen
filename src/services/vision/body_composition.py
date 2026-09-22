@@ -10,7 +10,12 @@ import cv2
 import numpy as np
 
 from schemas.common import MuscleLevel, BodyType
-from schemas.vision import BodyComposition, SWRCategory
+from schemas.vision import (
+    BodyComposition,
+    BodyCompositionSource,
+    InputCompleteness,
+    SWRCategory,
+)
 from services.vision.model_loader import model_registry
 from services.vision.landmarks import (
     Landmark,
@@ -220,9 +225,9 @@ class _InferenceEngine:
 
         ppc          = height_norm / max(user_height_cm, 1.0)
         shoulder_cm  = _dist(l_sh, r_sh) / ppc
-        hip_cm       = manual_hip_cm if manual_hip_cm else (_dist(l_hp, r_hp) / ppc)
+        hip_cm       = manual_hip_cm if manual_hip_cm is not None else (_dist(l_hp, r_hp) / ppc)
 
-        if manual_waist_cm:
+        if manual_waist_cm is not None:
             waist_circ = manual_waist_cm
         else:
             l_waist = ((l_sh[0] + l_hp[0]) / 2, (l_sh[1] + l_hp[1]) / 2)
@@ -285,8 +290,9 @@ class _InferenceEngine:
             r.muscle_level, r.confidence = self._features_to_muscle(features)
             r.muscle_score = r.confidence
         else:
-            r.muscle_level = MuscleLevel.moderate
+            r.muscle_level = None
             r.confidence   = 0.0
+            r.muscle_score = 0.0
 
         # 2. Landmark metrics → fat, v-taper, posture, SWR
         (
@@ -334,7 +340,13 @@ class BodyCompositionService:
     ) -> BodyComposition:
 
         if not images:
-            return BodyComposition(is_valid_person=False, confidence=0.0)
+            return BodyComposition(
+                is_valid_person=False,
+                confidence=0.0,
+                source=BodyCompositionSource.unavailable,
+                muscle_level_confidence=0.0,
+                input_completeness=InputCompleteness.partial,
+            )
 
         # Process up to 3 images in parallel
         selected = images[:3]
@@ -356,12 +368,23 @@ class BodyCompositionService:
                 posture_assessment="No valid person detected in any image",
                 confidence=0.0,
                 pose_detected=False,
+                source=BodyCompositionSource.unavailable,
+                muscle_level_confidence=0.0,
+                input_completeness=InputCompleteness.partial,
             )
 
         result = self._fuse(valid)
-        if manual_waist_cm:
+        result.input_completeness = (
+            InputCompleteness.full if len(valid) >= 2 else InputCompleteness.partial
+        )
+        has_manual = manual_waist_cm is not None or manual_hip_cm is not None
+        result.source = (
+            BodyCompositionSource.photo_plus_manual if has_manual
+            else BodyCompositionSource.photo_analysis
+        )
+        if manual_waist_cm is not None:
             result.waist_source = "manual"
-        if manual_hip_cm:
+        if manual_hip_cm is not None:
             result.hip_source = "manual"
         return result
 
@@ -387,14 +410,17 @@ class BodyCompositionService:
         else:
             fat_low = fat_high = None
 
-        # Categorical — majority vote
+        # Categorical — majority vote (posture included, for consistency with the rest)
         muscle_counter   = Counter(r.muscle_level for r in results if r.muscle_level)
         body_type_counter= Counter(r.body_type    for r in results if r.body_type)
-        posture_vals     = [r.posture for r in results if r.posture]
+        posture_counter  = Counter(r.posture      for r in results if r.posture)
 
         muscle_level = muscle_counter.most_common(1)[0][0] if muscle_counter else None
         body_type    = body_type_counter.most_common(1)[0][0] if body_type_counter else None
-        posture      = posture_vals[-1] if posture_vals else None   # last (best angle)
+        posture      = posture_counter.most_common(1)[0][0] if posture_counter else None
+
+        muscle_conf_vals = [r.muscle_score for r in results if r.muscle_level is not None]
+        avg_muscle_conf   = float(np.mean(muscle_conf_vals)) if muscle_conf_vals else 0.0
 
         # SWR — average pixel widths and ratio; majority-vote category
         sh_px_vals  = [r.shoulder_width_px for r in results if r.shoulder_width_px > 0]
@@ -424,6 +450,7 @@ class BodyCompositionService:
             is_valid_person=True,
             confidence=round(avg_conf, 3),
             pose_detected=pose_detected,
+            muscle_level_confidence=round(avg_muscle_conf, 3),
         )
 
 

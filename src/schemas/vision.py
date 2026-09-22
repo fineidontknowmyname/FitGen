@@ -6,14 +6,26 @@ from schemas.common import MuscleLevel, BodyType
 
 
 class SWRCategory(str, Enum):
-    """Shoulder-to-Waist Ratio classification."""
-    OVERFAT  = "overfat"    # swr < 1.0  — waist wider than shoulders
-    BALANCED = "balanced"   # 1.0 ≤ swr ≤ 1.2
-    ATHLETIC = "athletic"   # swr > 1.2  — strong V-taper
+    OVERFAT  = "overfat"
+    BALANCED = "balanced"
+    ATHLETIC = "athletic"
+
+
+class BodyCompositionSource(str, Enum):
+    photo_analysis     = "photo_analysis"
+    photo_plus_manual  = "photo_plus_manual"
+    tape_measurement   = "tape_measurement"
+    self_assessment     = "self_assessment"
+    unavailable         = "unavailable"
+
+
+class InputCompleteness(str, Enum):
+    full    = "full"
+    partial = "partial"
+
 
 class BodyComposition(BaseModel):
- 
-    # Body fat range estimate
+
     fat_pct_low: Optional[float] = Field(
         None, ge=2.0, le=60.0,
         description="Lower bound of estimated body fat percentage"
@@ -23,7 +35,6 @@ class BodyComposition(BaseModel):
         description="Upper bound of estimated body fat percentage"
     )
 
-    # Qualitative assessments
     muscle_level: Optional[MuscleLevel] = Field(
         None, description="Estimated muscle mass level"
     )
@@ -31,13 +42,11 @@ class BodyComposition(BaseModel):
         None, description="Estimated somatotype: ectomorph | mesomorph | endomorph"
     )
 
-    # V-Taper (shoulder-to-waist ratio)
     v_taper_ratio: Optional[float] = Field(
         None, ge=0.5, le=3.0,
         description="Estimated shoulder-width / waist-width ratio"
     )
 
-    # Shoulder-to-Waist Ratio (SWR) — MediaPipe landmark-based
     shoulder_width_px: float = Field(
         default=0.0, ge=0.0,
         description="Pixel-space shoulder width (landmarks 11–12)"
@@ -55,20 +64,18 @@ class BodyComposition(BaseModel):
         description="Classification: overfat | balanced | athletic"
     )
 
-    # Posture
     posture_assessment: Optional[str] = Field(
         None, max_length=200,
         description="Brief posture note e.g. 'Slight anterior pelvic tilt'"
     )
 
-    # Validity & confidence
     is_valid_person: bool = Field(
         True,
         description="False if no clear full-body shot was detected"
     )
     confidence: float = Field(
         default=0.0, ge=0.0, le=1.0,
-        description="Overall model confidence in this analysis (0 = low, 1 = high)"
+        description="Overall confidence in this analysis (landmark + muscle-classification blend)"
     )
     pose_detected: bool = Field(
         default=False,
@@ -79,8 +86,6 @@ class BodyComposition(BaseModel):
         ),
     )
 
-    # Measurement provenance — set when the caller supplies a manually
-    # measured circumference instead of relying on the photo-estimated value
     waist_source: str = Field(
         default="estimated",
         description="'estimated' (from photo geometry) or 'manual' (user-supplied waist_cm)",
@@ -88,6 +93,22 @@ class BodyComposition(BaseModel):
     hip_source: str = Field(
         default="estimated",
         description="'estimated' (from photo geometry) or 'manual' (user-supplied hip_cm)",
+    )
+
+    source: BodyCompositionSource = Field(
+        default=BodyCompositionSource.unavailable,
+        description="Which input path produced this analysis",
+    )
+    muscle_level_confidence: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description=(
+            "Confidence specifically in muscle_level (not the blended overall confidence). "
+            "0.0 means genuinely unavailable — never a placeholder for a missing model."
+        ),
+    )
+    input_completeness: InputCompleteness = Field(
+        default=InputCompleteness.partial,
+        description="'full' when enough input was supplied for a reliable read, else 'partial'",
     )
 
 # Backward-compat alias so existing imports don't break

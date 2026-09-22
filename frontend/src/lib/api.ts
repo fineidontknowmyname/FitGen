@@ -98,6 +98,9 @@ export interface UploadPhotosResult {
     confidence?: number;
     waist_source?: 'estimated' | 'manual';
     hip_source?: 'estimated' | 'manual';
+    source?: 'photo_analysis' | 'photo_plus_manual' | 'tape_measurement' | 'self_assessment' | 'unavailable';
+    muscle_level_confidence?: number;
+    input_completeness?: 'full' | 'partial';
     [key: string]: unknown;
 }
 
