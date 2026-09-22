@@ -45,6 +45,7 @@ interface FormData {
     youtubeUrls: string[];
     equipment: string[]; injuries: string[];
     frontPhoto: File | null; sidePhoto: File | null; backPhoto: File | null;
+    waistCm: string; hipCm: string;
 }
 
 const DEFAULT: FormData = {
@@ -55,6 +56,7 @@ const DEFAULT: FormData = {
     youtubeUrls: [''],
     equipment: [], injuries: [],
     frontPhoto: null, sidePhoto: null, backPhoto: null,
+    waistCm: '', hipCm: '',
 };
 
 export default function OnboardingPage() {
@@ -138,12 +140,16 @@ export default function OnboardingPage() {
         setAnalysisWarning(null);
         try {
             const heightCm = Number(form.height) || 175;
+            const waistCm = form.waistCm.trim() ? Number(form.waistCm) : undefined;
+            const hipCm = form.hipCm.trim() ? Number(form.hipCm) : undefined;
             const res = await uploadPhotos(
                 form.frontPhoto,
                 form.sidePhoto,
                 form.backPhoto,
                 heightCm,
                 form.gender,
+                waistCm,
+                hipCm,
             );
             setResult(res);
             // FIX 3: warn user if pose was not detected
@@ -382,6 +388,30 @@ export default function OnboardingPage() {
                                     <p className="text-xs text-zinc-500">
                                         JPG, PNG or WebP · Max 10 MB · Min 200×200 px · Full-body photo recommended
                                     </p>
+
+                                    {/* Optional manual measurements — combine with photo(s) for better accuracy */}
+                                    <div className="space-y-3 pt-2 border-t border-white/5">
+                                        <div>
+                                            <Label>Manual Measurements <span className="text-xs text-zinc-500 font-normal">(optional — improves accuracy)</span></Label>
+                                            <p className="text-xs text-zinc-500 mt-1">
+                                                Have a tape measure? Add your actual waist/hip circumference and we&apos;ll use it
+                                                instead of estimating it from the photo.
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs">Waist (cm)</Label>
+                                                <Input type="number" placeholder="e.g. 82" min={30} max={250}
+                                                    value={form.waistCm} onChange={e => set('waistCm', e.target.value)} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs">Hip (cm)</Label>
+                                                <Input type="number" placeholder="e.g. 98" min={30} max={250}
+                                                    value={form.hipCm} onChange={e => set('hipCm', e.target.value)} />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <Button variant="secondary" onClick={handleAnalyze}
                                         disabled={analyzing || !form.frontPhoto} className="w-full">
                                         {analyzing ? 'Analysing…' : 'Analyse Photos'}
@@ -401,7 +431,12 @@ export default function OnboardingPage() {
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="bg-black/40 p-3 rounded-lg">
-                                                    <span className="text-xs text-zinc-500 block">Est. Body Fat</span>
+                                                    <span className="text-xs text-zinc-500 block">
+                                                        Est. Body Fat
+                                                        {result.waist_source === 'manual' && (
+                                                            <span className="text-green-400 ml-1">(measured)</span>
+                                                        )}
+                                                    </span>
                                                     <span className="text-xl font-bold">
                                                         {result.fat_pct_low != null && result.fat_pct_high != null
                                                             ? `${result.fat_pct_low}–${result.fat_pct_high}%`
@@ -411,10 +446,21 @@ export default function OnboardingPage() {
                                                     </span>
                                                 </div>
                                                 <div className="bg-black/40 p-3 rounded-lg">
-                                                    <span className="text-xs text-zinc-500 block">V-Taper Ratio</span>
+                                                    <span className="text-xs text-zinc-500 block">
+                                                        V-Taper Ratio
+                                                        {result.hip_source === 'manual' && (
+                                                            <span className="text-green-400 ml-1">(measured)</span>
+                                                        )}
+                                                    </span>
                                                     <span className="text-xl font-bold">{result.v_taper_ratio ?? '--'}</span>
                                                 </div>
                                             </div>
+                                            {(result.waist_source === 'manual' || result.hip_source === 'manual') && (
+                                                <p className="text-xs text-zinc-500">
+                                                    Values marked &ldquo;measured&rdquo; use your manual measurement instead of the
+                                                    photo estimate.
+                                                </p>
+                                            )}
                                             {result.posture_assessment && (
                                                 <p className="text-sm"><span className="text-zinc-500">Posture: </span>{result.posture_assessment}</p>
                                             )}

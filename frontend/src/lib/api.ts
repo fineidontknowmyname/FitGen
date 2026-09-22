@@ -89,11 +89,15 @@ export interface PlanJobPayload {
 
 export interface UploadPhotosResult {
     body_fat_percentage?: number | null;
+    fat_pct_low?: number | null;
+    fat_pct_high?: number | null;
     v_taper_ratio?: number | null;
     posture_assessment?: string | null;
     is_valid_person?: boolean;
     pose_detected?: boolean;
     confidence?: number;
+    waist_source?: 'estimated' | 'manual';
+    hip_source?: 'estimated' | 'manual';
     [key: string]: unknown;
 }
 
@@ -140,6 +144,8 @@ export async function uploadPhotos(
     back?: File | null,
     heightCm: number = 175,
     gender: string = 'male',
+    waistCm?: number | null,
+    hipCm?: number | null,
 ): Promise<UploadPhotosResult> {
     const form = new FormData();
     form.append('front', front);
@@ -148,6 +154,12 @@ export async function uploadPhotos(
     form.append('consent', 'true');
     form.append('user_height_cm', String(heightCm));
     form.append('gender', gender);
+    if (waistCm !== undefined && waistCm !== null && !Number.isNaN(waistCm)) {
+        form.append('waist_cm', String(waistCm));
+    }
+    if (hipCm !== undefined && hipCm !== null && !Number.isNaN(hipCm)) {
+        form.append('hip_cm', String(hipCm));
+    }
 
     // Create a separate axios instance without the default Content-Type
     // so axios can set multipart/form-data with the correct boundary automatically

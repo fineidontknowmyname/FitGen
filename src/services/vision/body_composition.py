@@ -165,11 +165,13 @@ class _InferenceEngine:
         img_bgr: np.ndarray,
         user_height_cm: float,
         gender: str,
+        manual_waist_cm: Optional[float] = None,
+        manual_hip_cm: Optional[float] = None,
     ) -> Tuple[
         Optional[float], Optional[float], Optional[str], float,
         float, float, float, SWRCategory,
     ]:
-     
+
         _swr_defaults = (0.0, 0.0, 1.1, SWRCategory.BALANCED)
 
         try:
@@ -218,11 +220,14 @@ class _InferenceEngine:
 
         ppc          = height_norm / max(user_height_cm, 1.0)
         shoulder_cm  = _dist(l_sh, r_sh) / ppc
-        hip_cm       = _dist(l_hp, r_hp) / ppc
+        hip_cm       = manual_hip_cm if manual_hip_cm else (_dist(l_hp, r_hp) / ppc)
 
-        l_waist = ((l_sh[0] + l_hp[0]) / 2, (l_sh[1] + l_hp[1]) / 2)
-        r_waist = ((r_sh[0] + r_hp[0]) / 2, (r_sh[1] + r_hp[1]) / 2)
-        waist_circ = (_dist(l_waist, r_waist) / ppc) * math.pi
+        if manual_waist_cm:
+            waist_circ = manual_waist_cm
+        else:
+            l_waist = ((l_sh[0] + l_hp[0]) / 2, (l_sh[1] + l_hp[1]) / 2)
+            r_waist = ((r_sh[0] + r_hp[0]) / 2, (r_sh[1] + r_hp[1]) / 2)
+            waist_circ = (_dist(l_waist, r_waist) / ppc) * math.pi
 
         rfm_k   = 64.0 if gender.lower() == "male" else 76.0
         fat_pct = rfm_k - (20.0 * (user_height_cm / max(waist_circ, 1.0)))
@@ -257,6 +262,8 @@ class _InferenceEngine:
         image_bytes: bytes,
         user_height_cm: float,
         gender: str,
+        manual_waist_cm: Optional[float] = None,
+        manual_hip_cm: Optional[float] = None,
     ) -> _ImageResult:
         
         r = _ImageResult()
@@ -285,7 +292,9 @@ class _InferenceEngine:
         (
             fat, v_taper, posture, lm_conf,
             sh_w_px, wa_w_px, swr_val, swr_cat,
-        ) = self._landmark_metrics(img_bgr, user_height_cm, gender)
+        ) = self._landmark_metrics(
+            img_bgr, user_height_cm, gender, manual_waist_cm, manual_hip_cm
+        )
 
         r.fat_pct           = fat
         r.v_taper           = v_taper
@@ -320,8 +329,10 @@ class BodyCompositionService:
         images: List[bytes],
         user_height_cm: float = 175.0,
         gender: str = "male",
+        manual_waist_cm: Optional[float] = None,
+        manual_hip_cm: Optional[float] = None,
     ) -> BodyComposition:
-       
+
         if not images:
             return BodyComposition(is_valid_person=False, confidence=0.0)
 
@@ -331,7 +342,8 @@ class BodyCompositionService:
         per_image: List[_ImageResult] = await asyncio.gather(
             *[
                 asyncio.to_thread(
-                    self._engine.analyse_one, img, user_height_cm, gender
+                    self._engine.analyse_one, img, user_height_cm, gender,
+                    manual_waist_cm, manual_hip_cm,
                 )
                 for img in selected
             ]
@@ -346,7 +358,12 @@ class BodyCompositionService:
                 pose_detected=False,
             )
 
-        return self._fuse(valid)
+        result = self._fuse(valid)
+        if manual_waist_cm:
+            result.waist_source = "manual"
+        if manual_hip_cm:
+            result.hip_source = "manual"
+        return result
 
     # ── Fusion helpers ─────────────────────────────────────────────────────────
 

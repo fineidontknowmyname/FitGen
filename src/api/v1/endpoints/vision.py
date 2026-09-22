@@ -156,6 +156,18 @@ async def analyze_body(
     ] = None,
     user_height_cm: Annotated[float, Form(description="User height in cm for body-fat calibration")] = 175.0,
     gender: Annotated[str, Form(description="'male' or 'female' — affects RFM constant")] = "male",
+    waist_cm: Annotated[
+        float | None,
+        Form(description="Optional tape-measured waist circumference in cm — "
+                          "replaces the photo-estimated value for body-fat calibration",
+             ge=30.0, le=250.0),
+    ] = None,
+    hip_cm: Annotated[
+        float | None,
+        Form(description="Optional tape-measured hip circumference in cm — "
+                          "replaces the photo-estimated value for V-taper calibration",
+             ge=30.0, le=250.0),
+    ] = None,
 ) -> BodyComposition:
     """
     Analyse up to three **static** body photos and return a `BodyComposition` result.
@@ -175,6 +187,10 @@ async def analyze_body(
     x_vision_consent Must be "true" (case-insensitive).
     user_height_cm  Known height used to calibrate pixel → cm scale.
     gender          "male" or "female" — influences the RFM body-fat constant.
+    waist_cm        Optional manual waist measurement — combined with the photo(s)
+                    for a more accurate body-fat estimate than photo geometry alone.
+    hip_cm          Optional manual hip measurement — combined with the photo(s)
+                    for a more accurate V-taper estimate than photo geometry alone.
     """
     # ── Consent gate (accept from form field OR header) ────────────────────
     _require_consent(consent or x_vision_consent)
@@ -201,8 +217,9 @@ async def analyze_body(
         images.append(await _read_image(back))
 
     log.info(
-        "analyze-body: received %d image(s)  height=%.1f cm  gender=%s",
-        len(images), user_height_cm, gender,
+        "analyze-body: received %d image(s)  height=%.1f cm  gender=%s  "
+        "manual_waist_cm=%s  manual_hip_cm=%s",
+        len(images), user_height_cm, gender, waist_cm, hip_cm,
     )
 
     # ── Run inference ──────────────────────────────────────────────────────
@@ -212,6 +229,8 @@ async def analyze_body(
             images=images,
             user_height_cm=user_height_cm,
             gender=gender.lower(),
+            manual_waist_cm=waist_cm,
+            manual_hip_cm=hip_cm,
         )
     except Exception as exc:
         log.exception("Body composition analysis failed unexpectedly: %s", exc)

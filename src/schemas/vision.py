@@ -79,5 +79,16 @@ class BodyComposition(BaseModel):
         ),
     )
 
+    # Measurement provenance — set when the caller supplies a manually
+    # measured circumference instead of relying on the photo-estimated value
+    waist_source: str = Field(
+        default="estimated",
+        description="'estimated' (from photo geometry) or 'manual' (user-supplied waist_cm)",
+    )
+    hip_source: str = Field(
+        default="estimated",
+        description="'estimated' (from photo geometry) or 'manual' (user-supplied hip_cm)",
+    )
+
 # Backward-compat alias so existing imports don't break
 BodyAnalysisResult = BodyComposition
