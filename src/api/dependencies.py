@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-# ── Re-export db dependency so endpoints only need to import from here ─────────
+from db.session import get_db as get_db  # noqa: F401
 
-from db.session import get_db as get_db  # noqa: F401 (re-export)
-
-
-# ── Auth ───────────────────────────────────────────────────────────────────────
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -48,8 +44,6 @@ async def get_current_user(
     return user
 
 
-# ── Orchestrator ────────────────────────────────────────────────────────────────
-
 from core.orchestrator import plan_orchestrator, PlanOrchestrator
 
 
@@ -58,27 +52,21 @@ def get_orchestrator() -> PlanOrchestrator:
     return plan_orchestrator
 
 
-# ── Ollama client ───────────────────────────────────────────────────────────────
-
 from integrations.ollama_client import ollama_client, OllamaClient
 
 
 def get_ollama_client() -> OllamaClient:
-   
+
     return ollama_client
 
-
-# ── Vision model registry ───────────────────────────────────────────────────────
 
 from services.vision.model_loader import model_registry, ModelRegistry
 
 
 def get_vision_model() -> ModelRegistry:
-    
+
     return model_registry
 
-
-# ── Body composition service ────────────────────────────────────────────────────
 
 from services.vision.body_composition import (
     body_composition_service,
@@ -91,8 +79,6 @@ def get_body_composition() -> BodyCompositionService:
     return body_composition_service
 
 
-# ── Summarizer ──────────────────────────────────────────────────────────────────
-
 from services.intelligence.summarizer import summarizer_service, SummarizerService
 
 
@@ -100,8 +86,6 @@ def get_summarizer() -> SummarizerService:
     """Return the SummarizerService singleton (classify + extract via Ollama)."""
     return summarizer_service
 
-
-# ── YouTube service ─────────────────────────────────────────────────────────────
 
 from services.intelligence.youtube import youtube_service, YouTubeService
 
@@ -111,6 +95,4 @@ def get_youtube_service() -> YouTubeService:
     return youtube_service
 
 
-# ── Settings ────────────────────────────────────────────────────────────────────
-
-from config.settings import get_settings, Settings  # noqa: F401 (re-export)
+from config.settings import get_settings, Settings  # noqa: F401

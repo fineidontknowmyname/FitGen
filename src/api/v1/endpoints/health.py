@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 from config.settings import settings
 from db.session import get_db
-from db.models import UserRecord # dummy import for sqlalchemy
+from db.models import UserRecord
 import redis.asyncio as redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,11 +36,8 @@ async def redis_health() -> JSONResponse:
 
 @router.get("/celery", summary="Celery ping")
 def celery_health_check() -> JSONResponse:
-    # Sync because celery control ping is sync
     try:
         inspector = celery_app.control.ping(timeout=3.0)
-        # inspector is a dict of {worker_node_name: {"ok": "pong"}}
-        # if empty, no workers are listening
         if inspector:
             return JSONResponse(status_code=200, content={"celery": "ok", "workers": len(inspector)})
         else:

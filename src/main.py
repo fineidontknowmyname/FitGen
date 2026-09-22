@@ -24,14 +24,10 @@ logging.basicConfig(
 )
 
 
-# ── Startup / shutdown ─────────────────────────────────────────────────────────
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. DB
     log.info("Startup: creating / verifying database tables …")
     try:
-        # Import models first so their tables are registered with Base.metadata
         import db.models  # noqa: F401
         from db.session import create_all_tables
         await create_all_tables()
@@ -39,7 +35,6 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.error("Startup: DB init failed — %s", exc)
 
-    # 2. Vision model pre-warm (non-blocking, best-effort)
     log.info("Startup: pre-warming vision model …")
     try:
         from services.vision.model_loader import model_registry
@@ -48,7 +43,6 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.warning("Startup: vision model pre-warm skipped — %s", exc)
 
-    # 3. Ollama connectivity check (warn only)
     log.info("Startup: checking Ollama connectivity at %s …", settings.OLLAMA_HOST)
     try:
         import httpx
@@ -59,24 +53,19 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.warning("Startup: Ollama not reachable — %s (plan generation will fail)", exc)
 
-    # 4. Celery / Redis connectivity check (warn only)
     log.info("Startup: checking Celery broker at %s …", settings.REDIS_URL)
     try:
         from workers.celery_app import celery_app
-        # inspect().ping() with a short timeout is the canonical broker ping
         inspector = celery_app.control.inspect(timeout=3.0)
         await asyncio.to_thread(inspector.ping)
         log.info("Startup: Celery broker OK")
     except Exception as exc:
         log.warning("Startup: Celery broker not reachable — %s (async jobs will fail)", exc)
 
-    yield   # ← application runs here
+    yield
 
-    # Shutdown (add cleanup here if needed)
     log.info("Shutdown: complete")
 
-
-# ── Application ────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="FitGen API",
@@ -88,11 +77,7 @@ app = FastAPI(
 )
 
 
-# ── CORS ───────────────────────────────────────────────────────────────────────
-
 _CORS_ORIGINS = ["*"] if settings.ENVIRONMENT == "local" else [
-    # Add known frontend origins here for non-local environments
-    # e.g. "https://app.koda.fit"
 ]
 
 app.add_middleware(
@@ -103,8 +88,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ── Exception handlers ─────────────────────────────────────────────────────────
 
 @app.exception_handler(DomainBaseError)
 async def domain_error_handler(request: Request, exc: DomainBaseError) -> JSONResponse:
@@ -151,21 +134,15 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     )
 
 
-# ── Routers ────────────────────────────────────────────────────────────────────
-
 app.include_router(api_router, prefix="/api/v1")
-app.include_router(legacy_router)   # /generate-plan → 307 redirect
+app.include_router(legacy_router)
 
-
-# ── System endpoints ───────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["System"], summary="Liveness probe")
 def health_check() -> dict:
     """Returns 200 OK — no DB or broker dependency (suitable for k8s liveness probe)."""
     return {"status": "ok", "environment": settings.ENVIRONMENT, "version": "1.0.0"}
 
-
-# ── Entry-point ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     uvicorn.run(

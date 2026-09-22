@@ -81,17 +81,16 @@ export default function ServiceStatus() {
     useEffect(() => {
         const run = async () => { await checkServices(); };
         run();
-        const interval = setInterval(() => { run(); }, 30000); // 30s
+        const interval = setInterval(() => { run(); }, 30000);
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Derived states
     const offlineCount = services.filter(s => s.status === 'offline').length;
     const degradedCount = services.filter(s => s.status === 'degraded').length;
     const isChecking = services.some(s => s.status === 'checking');
 
-    let overallColor = 'bg-stone-500 text-white'; // default/unknown
+    let overallColor = 'bg-stone-500 text-white';
     let pulseClass = '';
 
     if (!isChecking) {
@@ -116,7 +115,6 @@ export default function ServiceStatus() {
 
     return (
         <div className="fixed bottom-4 right-4 z-50 font-sans">
-            {/* Panel */}
             {isOpen && (
                 <div className="absolute bottom-16 right-0 w-80 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-4 mb-2 backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 text-sm">
                     <div className="flex justify-between items-center mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
@@ -164,7 +162,6 @@ export default function ServiceStatus() {
                 </div>
             )}
 
-            {/* Floating Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95 border border-black/5 dark:border-white/5 font-medium text-sm ${overallColor}`}

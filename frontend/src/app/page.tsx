@@ -10,10 +10,8 @@ export default function LandingPage() {
     <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
       <Header />
 
-      {/* Hero Section */}
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6 flex flex-col items-center text-center overflow-hidden">
 
-        {/* Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-yellow-500/10 rounded-full blur-[120px] -z-10" />
 
         <motion.div
@@ -45,15 +43,9 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Features Grid Removed per User Request */}
-
-
-      {/* Footer */}
       <footer className="py-12 border-t border-white/5 text-center text-zinc-500 text-sm">
         <p>&copy; {new Date().getFullYear()} Genesis Tech. All rights reserved.</p>
       </footer>
     </div>
   );
 }
-
-

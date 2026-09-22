@@ -3,10 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Base
-# ─────────────────────────────────────────────────────────────────────────────
-
 class DomainBaseError(Exception):
     http_status: int = 500
     code: str = "internal_error"
@@ -28,10 +24,6 @@ class DomainBaseError(Exception):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(code={self.code!r}, detail={self.detail!r})"
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Validation errors  (4xx — caller's fault)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ValidationError(DomainBaseError):
     """Input from the caller failed domain validation."""
@@ -63,7 +55,7 @@ class InvalidURLError(ValidationError):
 
 class ConsentRequiredError(ValidationError):
     """Body-image analysis requires explicit user consent."""
-    http_status = 451   # Unavailable For Legal Reasons
+    http_status = 451
     code = "consent_required"
 
     def __init__(self) -> None:
@@ -74,10 +66,6 @@ class ConsentRequiredError(ValidationError):
             ),
         )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Not found errors  (404)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class NotFoundError(DomainBaseError):
     """Requested resource does not exist."""
@@ -106,10 +94,6 @@ class PlanNotFoundError(NotFoundError):
             context={"job_id": job_id},
         )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# External service errors  (502 / 503)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ExternalServiceError(DomainBaseError):
     """A call to a third-party service failed."""
@@ -152,10 +136,6 @@ class VisionModelError(ExternalServiceError):
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Pipeline / job errors  (500 / 503)
-# ─────────────────────────────────────────────────────────────────────────────
-
 class PipelineError(DomainBaseError):
     """The orchestrator or background job pipeline encountered an error."""
     http_status = 500
@@ -184,10 +164,6 @@ class JobDispatchError(PipelineError):
             context={"reason": reason},
         )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Configuration errors  (500)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ConfigurationError(DomainBaseError):
     """A required server configuration value is missing or invalid."""

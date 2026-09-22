@@ -7,19 +7,15 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-# src/config/settings.py -> src/config -> src -> root
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
-    # ── Ollama (active LLM backend) ───────────────────────────────────────────
     OLLAMA_HOST: str = Field(
         default="http://localhost:11435",
         description="Base URL of the running Ollama server (alias: OLLAMA_BASE_URL)",
     )
-    # Keep OLLAMA_BASE_URL as a read-only alias so existing .env files keep working
     OLLAMA_BASE_URL: Optional[str] = Field(
         default=None,
         description="Alias for OLLAMA_HOST — prefer OLLAMA_HOST in new .env files",
@@ -33,7 +29,6 @@ class Settings(BaseSettings):
         description="Multimodal / vision model tag served by Ollama",
     )
 
-    # ── On-device vision model ────────────────────────────────────────────────
     MODEL_PATH: str = Field(
         default="models/body_composition.keras",
         description=(
@@ -42,7 +37,6 @@ class Settings(BaseSettings):
         ),
     )
 
-    # ── Database ──────────────────────────────────────────────────────────────
     DATABASE_URL: Optional[str] = Field(
         default=None,
         description=(
@@ -52,7 +46,6 @@ class Settings(BaseSettings):
         ),
     )
 
-    # ── Redis / Celery ────────────────────────────────────────────────────────
     REDIS_URL: str = Field(
         default="redis://localhost:6379/0",
         description="Redis connection URL used as the Celery broker",
@@ -66,7 +59,6 @@ class Settings(BaseSettings):
         description="Celery result backend URL (defaults to REDIS_URL on DB 1 when not set)",
     )
 
-    # ── Application ────────────────────────────────────────────────────────────
     ENVIRONMENT: str = Field(
         default="local",
         description="Deployment environment: local | dev | staging | prod",
@@ -89,15 +81,12 @@ class Settings(BaseSettings):
         description="JWT access token lifetime, in minutes (default: 24h)",
     )
 
-    # Model config — read from .env file
     model_config = SettingsConfigDict(
         env_file=str(ENV_PATH),
         env_file_encoding="utf-8",
         extra="ignore",
-        populate_by_name=True,  # allow field name OR alias in .env
+        populate_by_name=True,
     )
-
-    # ── Derived helpers ────────────────────────────────────────────────────────
 
     @property
     def effective_ollama_host(self) -> str:
@@ -112,7 +101,6 @@ class Settings(BaseSettings):
     def effective_backend_url(self) -> str:
         if self.CELERY_RESULT_BACKEND:
             return self.CELERY_RESULT_BACKEND
-        # Use Redis DB 1 for results to avoid colliding with broker on DB 0
         base = self.REDIS_URL.rstrip("/")
         if base.endswith("/0"):
             return base[:-2] + "/1"

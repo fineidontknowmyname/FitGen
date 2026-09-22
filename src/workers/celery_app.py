@@ -43,8 +43,6 @@ from celery import Celery
 log = logging.getLogger(__name__)
 
 
-# ── Resolve broker / backend URLs ──────────────────────────────────────────────
-
 def _broker_url() -> str:
     """Read broker URL from settings or env, falling back to local Redis."""
     try:
@@ -67,35 +65,26 @@ def _backend_url() -> str:
         return os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
 
 
-# ── Celery application ─────────────────────────────────────────────────────────
-
 celery_app = Celery(
     "koda_workers",
     broker=_broker_url(),
     backend=_backend_url(),
-    include=["workers.tasks"],   # task modules loaded when worker starts
+    include=["workers.tasks"],
 )
 
 celery_app.conf.update(
-    # Serialisation
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
 
-    # Reliability
-    task_track_started=True,      # STARTED state visible to poll endpoint
-    task_acks_late=True,          # re-queue on worker crash before ack
-    worker_prefetch_multiplier=1, # one task at a time per thread (fair queue)
+    task_track_started=True,
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
 
-    # Result TTL — keep results 24 h then let Redis expire them
     result_expires=60 * 60 * 24,
 
-    # Timezone
     timezone="UTC",
     enable_utc=True,
-
-    # Beat scheduler (uncomment if you add periodic tasks)
-    # beat_schedule = { ... }
 )
 
 log.info(

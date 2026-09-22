@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -21,10 +20,8 @@ class SplitType(str, Enum):
     custom          = "custom"
 
 
-
 @dataclass
 class DayTemplate:
-    
     day_name:      str
     muscle_focus:  List[str] = field(default_factory=list)
     max_exercises: int = 6
@@ -68,12 +65,11 @@ _SPLIT_TEMPLATES: dict[SplitType, list[DayTemplate]] = {
 }
 
 
+_SECONDS_PER_SET = 45
+_REST_PER_SET    = 60
+_TIME_PER_SET    = (_SECONDS_PER_SET + _REST_PER_SET) / 60
 
-_SECONDS_PER_SET = 45      # avg work time
-_REST_PER_SET    = 60      # avg rest between sets
-_TIME_PER_SET    = (_SECONDS_PER_SET + _REST_PER_SET) / 60   # â†’ 1.75 min/set
-
-_MAX_SESSION_MIN = 90      # hard ceiling regardless of exercise count
+_MAX_SESSION_MIN = 90
 
 
 _SETS_BY_LEVEL: dict[ExperienceLevel, int] = {
@@ -86,7 +82,7 @@ _DEFAULT_UPPER_STRENGTH = [
     ("Bench Press",          "Chest",     "Drive feet into floor and arch your upper back slightly."),
     ("Barbell Row",          "Back",      "Keep chest tall and pull the bar to your lower ribcage."),
     ("Overhead Press",       "Shoulders", "Brace your core and press the bar in a straight vertical line."),
-    ("Pull-up / Lat Pulldown","Back",     "Retract scapula before pulling â€” avoid shrugging."),
+    ("Pull-up / Lat Pulldown","Back",     "Retract scapula before pulling — avoid shrugging."),
     ("Tricep Dips",          "Triceps",   "Keep torso upright to emphasise triceps over chest."),
     ("Barbell Bicep Curl",   "Biceps",    "Pin elbows to sides and avoid swinging the torso."),
 ]
@@ -96,24 +92,24 @@ _DEFAULT_LOWER_STRENGTH = [
     ("Romanian Deadlift",     "Hamstrings", "Hinge at the hips, maintain a neutral spine throughout."),
     ("Leg Press",             "Quadriceps", "Place feet shoulder-width; don't lock knees at the top."),
     ("Bulgarian Split Squat", "Quadriceps", "Keep front shin vertical and torso upright."),
-    ("Standing Calf Raise",   "Calves",     "Full range of motion â€” pause at the top and bottom."),
+    ("Standing Calf Raise",   "Calves",     "Full range of motion — pause at the top and bottom."),
 ]
 
 _DEFAULT_UPPER_HYPERTROPHY = [
-    ("Incline Dumbbell Press","Chest",     "Control the eccentric â€” take 2-3 s to lower the dumbbells."),
+    ("Incline Dumbbell Press","Chest",     "Control the eccentric — take 2-3 s to lower the dumbbells."),
     ("Cable Row",             "Back",      "Keep a slight forward lean and squeeze the shoulder blades."),
     ("Lateral Raise",         "Shoulders", "Lead with the elbows and pause at shoulder height."),
-    ("Face Pull",             "Rear Delts","Pull to forehead height â€” externally rotate at the top."),
+    ("Face Pull",             "Rear Delts","Pull to forehead height — externally rotate at the top."),
     ("Dumbbell Bicep Curl",   "Biceps",    "Supinate the wrist fully at the top of each rep."),
     ("Skull Crusher",         "Triceps",   "Keep upper arms perpendicular to floor; lower to forehead."),
 ]
 
 _DEFAULT_LOWER_HYPERTROPHY = [
-    ("Front Squat / Hack Squat","Quadriceps","Stay upright â€” let knees travel forward over toes."),
+    ("Front Squat / Hack Squat","Quadriceps","Stay upright — let knees travel forward over toes."),
     ("Lying Leg Curl",          "Hamstrings","Flex ankles toward glutes; don't let hips rise off pad."),
     ("Walking Lunge",           "Quadriceps","Step long enough so front shin stays vertical."),
     ("Leg Extension",           "Quadriceps","Pause and squeeze at the top; don't use momentum."),
-    ("Seated Calf Raise",       "Calves",    "Full range of motion â€” pause at the bottom for a stretch."),
+    ("Seated Calf Raise",       "Calves",    "Full range of motion — pause at the bottom for a stretch."),
 ]
 
 
@@ -121,13 +117,13 @@ class SchedulerEngine:
 
     def build_base_week(
         self,
-        scored_exercises: Sequence,   # List[ScoredExercise] or List[Exercise]
+        scored_exercises: Sequence,
         experience_level: ExperienceLevel,
         split: SplitType = SplitType.full_body,
         capacity_score: float = 1.0,
         custom_days: Optional[List[DayTemplate]] = None,
     ) -> WeeklySchedule:
-        
+
         exercises = self._unwrap(scored_exercises)
 
         if split == SplitType.custom or custom_days is not None:
@@ -138,7 +134,6 @@ class SchedulerEngine:
         training_days = [t for t in templates if not t.is_rest]
         sets_per_ex   = self._sets_count(experience_level, capacity_score)
 
-        # Route exercises to days
         day_exercise_map: dict[str, List[Exercise]] = {
             t.day_name: [] for t in training_days
         }
@@ -148,7 +143,7 @@ class SchedulerEngine:
             routed = False
             for tmpl in training_days:
                 if not tmpl.muscle_focus:
-                    continue   # full-body days handled in round-robin below
+                    continue
                 if self._matches_focus(ex, tmpl.muscle_focus):
                     bucket = day_exercise_map[tmpl.day_name]
                     if len(bucket) < tmpl.max_exercises:
@@ -158,9 +153,8 @@ class SchedulerEngine:
             if not routed:
                 unrouted.append(ex)
 
-        # Round-robin unrouted (or all, for full-body) exercises across days
         full_body_days = [t for t in training_days if not t.muscle_focus]
-        target_days    = full_body_days or training_days   # fallback
+        target_days    = full_body_days or training_days
 
         for idx, ex in enumerate(unrouted):
             tmpl  = target_days[idx % len(target_days)]
@@ -168,12 +162,11 @@ class SchedulerEngine:
             if len(bucket) < tmpl.max_exercises:
                 bucket.append(ex)
 
-        # Build WorkoutSession objects
         sessions: List[WorkoutSession] = []
         for tmpl in training_days:
             day_exercises = day_exercise_map.get(tmpl.day_name, [])
             if not day_exercises:
-                continue   # skip empty training days
+                continue
 
             workout_exercises = [
                 WorkoutExercise(
@@ -202,18 +195,15 @@ class SchedulerEngine:
 
         return WeeklySchedule(week_number=1, sessions=sessions)
 
-    # â”€â”€ Structured 7-day plan (new) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     def build_weekly_plan(
         self,
         scored_exercises: Sequence,
         experience_level: ExperienceLevel,
         capacity_score: float = 1.0,
     ) -> WeeklyPlan:
-        
+
         exercises = self._unwrap(scored_exercises)
 
-        # Capacity nudge: advanced users get 4 sets on hypertrophy days
         hyp_sets = 4 if capacity_score >= 1.20 else 3
 
         upper_muscles = {"chest", "back", "shoulder", "bicep", "tricep", "lat", "deltoid"}
@@ -222,7 +212,6 @@ class SchedulerEngine:
         upper_ex = self._filter_by_focus(exercises, upper_muscles)
         lower_ex = self._filter_by_focus(exercises, lower_muscles)
 
-        # Day 1 â€” Upper Strength
         day1_exs = self._build_scheduled(
             library=upper_ex,
             defaults=_DEFAULT_UPPER_STRENGTH,
@@ -233,7 +222,6 @@ class SchedulerEngine:
             rationale="Selected for upper-body strength development in Phase 1.",
         )
 
-        # Day 2 â€” Lower Strength
         day2_exs = self._build_scheduled(
             library=lower_ex,
             defaults=_DEFAULT_LOWER_STRENGTH,
@@ -244,7 +232,6 @@ class SchedulerEngine:
             rationale="Selected for lower-body strength development in Phase 1.",
         )
 
-        # Day 4 â€” Upper Hypertrophy
         day4_exs = self._build_scheduled(
             library=upper_ex,
             defaults=_DEFAULT_UPPER_HYPERTROPHY,
@@ -252,10 +239,9 @@ class SchedulerEngine:
             sets=hyp_sets,
             reps="8-12",
             rest=90,
-            rationale="Hypertrophy focus â€” moderate load, higher volume.",
+            rationale="Hypertrophy focus — moderate load, higher volume.",
         )
 
-        # Day 5 â€” Lower Hypertrophy
         day5_exs = self._build_scheduled(
             library=lower_ex,
             defaults=_DEFAULT_LOWER_HYPERTROPHY,
@@ -263,20 +249,20 @@ class SchedulerEngine:
             sets=hyp_sets,
             reps="8-12",
             rest=90,
-            rationale="Hypertrophy focus â€” moderate load, higher volume.",
+            rationale="Hypertrophy focus — moderate load, higher volume.",
         )
 
         days = [
             DailyWorkout(
                 day_number=1,
-                day_name="Day 1: Upper Body â€” Strength",
+                day_name="Day 1: Upper Body — Strength",
                 focus="Chest, Back, Shoulders, Arms",
                 exercises=day1_exs,
                 notes="Heavy compound movements. Focus on progressive overload.",
             ),
             DailyWorkout(
                 day_number=2,
-                day_name="Day 2: Lower Body â€” Strength",
+                day_name="Day 2: Lower Body — Strength",
                 focus="Quadriceps, Hamstrings, Glutes, Calves",
                 exercises=day2_exs,
                 notes="Heavy compound movements. Drive through the heels.",
@@ -291,14 +277,14 @@ class SchedulerEngine:
             ),
             DailyWorkout(
                 day_number=4,
-                day_name="Day 4: Upper Body â€” Hypertrophy",
+                day_name="Day 4: Upper Body — Hypertrophy",
                 focus="Chest, Back, Shoulders, Arms",
                 exercises=day4_exs,
                 notes="Moderate weight, higher reps. Slow eccentric on each rep.",
             ),
             DailyWorkout(
                 day_number=5,
-                day_name="Day 5: Lower Body â€” Hypertrophy",
+                day_name="Day 5: Lower Body — Hypertrophy",
                 focus="Quadriceps, Hamstrings, Glutes, Calves",
                 exercises=day5_exs,
                 notes="Moderate weight, higher reps. Full range of motion on every rep.",
@@ -336,7 +322,6 @@ class SchedulerEngine:
 
     @staticmethod
     def _filter_by_focus(exercises: List[Exercise], focus: set) -> List[Exercise]:
-        """Return exercises that target at least one muscle in focus set."""
         out = []
         for ex in exercises:
             muscles = {m.lower() for m in getattr(ex, "muscles_worked", [])}
@@ -354,11 +339,10 @@ class SchedulerEngine:
         rest: int,
         rationale: str,
     ) -> List[ScheduledExercise]:
-        
+
         result: List[ScheduledExercise] = []
         used_names: set = set()
 
-        # 1. Cherry-pick from scored library
         for ex in library:
             if len(result) >= count:
                 break
@@ -378,7 +362,6 @@ class SchedulerEngine:
             ))
             used_names.add(nm)
 
-        # 2. Fill gaps with defaults
         for name, muscle, cue in defaults:
             if len(result) >= count:
                 break
@@ -399,10 +382,6 @@ class SchedulerEngine:
 
     @staticmethod
     def _sets_count(level: ExperienceLevel, capacity_score: float) -> int:
-        """
-        Base sets from experience level + a +1 bonus for high capacity.
-        Capped at 5 to keep sessions manageable.
-        """
         base = _SETS_BY_LEVEL.get(level, 3)
         bonus = 1 if capacity_score >= 1.30 else 0
         return min(5, base + bonus)
@@ -419,9 +398,8 @@ class SchedulerEngine:
     @staticmethod
     def _estimate_duration(n_exercises: int, sets_per_ex: int) -> int:
         total_sets = n_exercises * sets_per_ex
-        raw_min    = total_sets * _TIME_PER_SET + 10   # 10 min buffer
+        raw_min    = total_sets * _TIME_PER_SET + 10
         return max(5, min(_MAX_SESSION_MIN, int(raw_min)))
 
 
-# Module-level singleton
 scheduler = SchedulerEngine()

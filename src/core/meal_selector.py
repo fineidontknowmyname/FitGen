@@ -6,8 +6,6 @@ from enum import Enum
 from typing import List, Optional, Sequence
 
 
-# ── Dietary restriction tags ───────────────────────────────────────────────────
-
 class DietaryRestriction(str, Enum):
     vegan          = "vegan"
     vegetarian     = "vegetarian"
@@ -20,17 +18,12 @@ class DietaryRestriction(str, Enum):
     kosher         = "kosher"
 
 
-# ── Meal slot definition ───────────────────────────────────────────────────────
-
 @dataclass(frozen=True)
 class MealSlot:
-    
     name:             str
     calorie_fraction: float
     is_snack:         bool = False
 
-
-# ── Default daily slot schedule ───────────────────────────────────────────────
 
 DEFAULT_SLOTS: list[MealSlot] = [
     MealSlot("Breakfast",       calorie_fraction=0.25),
@@ -41,11 +34,8 @@ DEFAULT_SLOTS: list[MealSlot] = [
 ]
 
 
-# ── Meal item ─────────────────────────────────────────────────────────────────
-
 @dataclass
 class MealItem:
-   
     name:             str
     kcal:             float
     protein_g:        float = 0.0
@@ -54,38 +44,21 @@ class MealItem:
     restriction_tags: set[DietaryRestriction] = field(default_factory=set)
 
     def is_eligible(self, restrictions: Sequence[DietaryRestriction]) -> bool:
-       
         if not restrictions:
             return True
         return all(r in self.restriction_tags for r in restrictions)
 
 
-# ── Selected slot entry ────────────────────────────────────────────────────────
-
 @dataclass
 class SelectedMeal:
     slot:    MealSlot
     meal:    MealItem
-    kcal:    float      # actual serving kcal (may be scaled)
-    scaling: float      # portion scaling factor applied (1.0 = full serving)
+    kcal:    float
+    scaling: float
 
-
-# ── Daily plan output ─────────────────────────────────────────────────────────
 
 @dataclass
 class DailyPlan:
-    """
-    The full day's meal selections.
-
-    Attributes
-    ----------
-    meals           Ordered list of (slot → meal) selections.
-    total_kcal      Sum of kcal across all selected meals.
-    target_kcal     The calorie target this plan was built for.
-    is_within_tolerance
-                    True iff |total - target| / target ≤ tolerance.
-    unfilled_slots  Slot names for which no eligible meal was found.
-    """
     meals:                List[SelectedMeal]
     total_kcal:           float
     target_kcal:          float
@@ -94,14 +67,10 @@ class DailyPlan:
 
     @property
     def calorie_delta(self) -> float:
-        """Signed difference: total − target (negative = under target)."""
         return round(self.total_kcal - self.target_kcal, 2)
 
 
-# ── Engine ─────────────────────────────────────────────────────────────────────
-
 class MealSelectorEngine:
-    
 
     def select(
         self,
@@ -113,7 +82,7 @@ class MealSelectorEngine:
         shuffle_pool: bool = True,
         seed: Optional[int] = None,
     ) -> DailyPlan:
-       
+
         if slots is None:
             slots = DEFAULT_SLOTS
 
@@ -129,15 +98,13 @@ class MealSelectorEngine:
         if shuffle_pool:
             rng.shuffle(pool)
 
-        # Eligible pool (restriction filter applied once, not per-slot)
         eligible_pool = [m for m in pool if m.is_eligible(restrictions)]
 
-        # Sort slots by budget descending for greedy fill
         ordered_slots = sorted(slots, key=lambda s: s.calorie_fraction, reverse=True)
 
         selections: List[SelectedMeal] = []
         unfilled: List[str] = []
-        used_names: set[str] = set()   # avoid exact duplicate meals on same day
+        used_names: set[str] = set()
 
         for slot in ordered_slots:
             budget = calorie_target * slot.calorie_fraction
@@ -147,7 +114,6 @@ class MealSelectorEngine:
                 unfilled.append(slot.name)
                 continue
 
-            # Scale portion to match budget
             scaling = budget / chosen.kcal if chosen.kcal > 0 else 1.0
             actual_kcal = chosen.kcal * scaling
 
@@ -159,7 +125,6 @@ class MealSelectorEngine:
             ))
             used_names.add(chosen.name)
 
-        # Re-sort selections back to natural slot order
         slot_order = {s.name: i for i, s in enumerate(slots)}
         selections.sort(key=lambda sm: slot_order.get(sm.slot.name, 999))
 
@@ -174,8 +139,6 @@ class MealSelectorEngine:
             unfilled_slots=unfilled,
         )
 
-    # ── Selection helpers ──────────────────────────────────────────────────────
-
     def _pick(
         self,
         pool: List[MealItem],
@@ -183,7 +146,7 @@ class MealSelectorEngine:
         tolerance: float,
         used_names: set[str],
     ) -> Optional[MealItem]:
-        
+
         unused = [m for m in pool if m.name not in used_names]
         within_tol = [
             m for m in unused
@@ -191,19 +154,15 @@ class MealSelectorEngine:
         ]
 
         if within_tol:
-            # Closest to budget among in-tolerance options
             return min(within_tol, key=lambda m: abs(m.kcal - budget))
 
         if unused:
-            # Closest to budget among all unused (will be scaled)
             return min(unused, key=lambda m: abs(m.kcal - budget))
 
         if pool:
-            # Last resort — allow repeats rather than leave slot empty
             return min(pool, key=lambda m: abs(m.kcal - budget))
 
         return None
 
 
-# Module-level singleton
 meal_selector = MealSelectorEngine()

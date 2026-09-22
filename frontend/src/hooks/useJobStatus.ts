@@ -3,10 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { pollJobStatus, JobStatus, JobStatusResponse } from '@/lib/api';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface UseJobStatusOptions {
     /** Interval in ms between poll requests. Default: 3000 */
     intervalMs?: number;
@@ -27,10 +23,6 @@ export interface UseJobStatusReturn {
     /** Restart polling with the same jobId (useful after a transient error). */
     restart: () => void;
 }
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
 
 /**
  * useJobStatus
@@ -84,7 +76,6 @@ export function useJobStatus(
             }
         } catch (err) {
             console.error('[useJobStatus] poll error:', err);
-            // Don't stop on network error — retry next interval
         }
     }, [jobId, maxPolls, stop, onSettled]);
 
@@ -96,16 +87,14 @@ export function useJobStatus(
         setPollCount(0);
         if (!jobId) return;
         setIsPolling(true);
-        // Immediate first poll
         doPoll();
         timerRef.current = setInterval(doPoll, intervalMs);
     }, [jobId, intervalMs, stop, doPoll]);
 
-    // Start polling when jobId appears
     useEffect(() => {
         if (!jobId) return;
         restart();
-        return () => stop(); // cleanup on unmount
+        return () => stop();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [jobId]);
 

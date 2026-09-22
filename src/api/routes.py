@@ -7,14 +7,12 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
-from api.v1.api import api_router  # noqa: F401  (re-exported for app.include_router)
+from api.v1.api import api_router  # noqa: F401
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-# ── Legacy redirect ────────────────────────────────────────────────────────────
 
 @router.api_route(
     "/generate-plan",
@@ -30,7 +28,7 @@ router = APIRouter()
     tags=["Legacy"],
 )
 async def legacy_generate_plan_redirect() -> RedirectResponse:
-    
+
     log.info("Legacy /generate-plan called — redirecting to /api/v1/plans/generate/pdf")
     return RedirectResponse(
         url="/api/v1/plans/generate/pdf",

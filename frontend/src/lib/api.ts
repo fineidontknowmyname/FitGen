@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// ── Local Storage Migration (koda -> fitgen) ──────────────────────────────
 if (typeof window !== 'undefined') {
     const oldUser = localStorage.getItem('koda_user');
     if (oldUser && !localStorage.getItem('fitgen_user')) {
@@ -26,10 +25,6 @@ if (typeof window !== 'undefined') {
         localStorage.removeItem('koda_theme');
     }
 }
-
-// ---------------------------------------------------------------------------
-// Axios instance
-// ---------------------------------------------------------------------------
 
 const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
@@ -59,10 +54,6 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export type JobStatus = 'pending' | 'running' | 'done' | 'failed';
 
@@ -127,10 +118,6 @@ export interface SelfAssessmentPayload {
     squat_count?: number | null;
 }
 
-// ---------------------------------------------------------------------------
-// Plan job — async Celery dispatch
-// ---------------------------------------------------------------------------
-
 export async function submitPlanJob(payload: PlanJobPayload): Promise<JobResponse> {
     try {
         const res = await api.post<JobResponse>('/api/v1/plans/generate', payload);
@@ -159,10 +146,6 @@ export async function downloadPlanPdf(jobId: string): Promise<Blob> {
     const res = await api.get(`/api/v1/plans/job/${jobId}/pdf`, { responseType: 'blob' });
     return res.data as Blob;
 }
-
-// ---------------------------------------------------------------------------
-// Vision — 3-photo body composition upload
-// ---------------------------------------------------------------------------
 
 export async function uploadPhotos(
     front: File,
@@ -199,10 +182,6 @@ export async function uploadPhotos(
     );
     return res.data;
 }
-
-// ---------------------------------------------------------------------------
-// Metrics — tape measurement / self-assessment (non-photo body composition)
-// ---------------------------------------------------------------------------
 
 export async function submitTapeMeasurement(
     payload: TapeMeasurementPayload

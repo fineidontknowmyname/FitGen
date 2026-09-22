@@ -13,10 +13,6 @@ from db.models import FitnessPlanRecord
 log = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Async variants  (FastAPI endpoints)
-# ─────────────────────────────────────────────────────────────────────────────
-
 async def save_plan_async(
     db: AsyncSession,
     *,
@@ -81,10 +77,6 @@ async def list_plans_for_user_async(
     return list(result.scalars().all())
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Sync variants  (Celery workers — receive a plain Session)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def save_plan(
     db: Session,
     *,
@@ -96,7 +88,7 @@ def save_plan(
     error_detail: str | None = None,
     youtube_urls: list[str] | None = None,
 ) -> FitnessPlanRecord:
-    
+
     row: FitnessPlanRecord | None = db.execute(
         select(FitnessPlanRecord).where(FitnessPlanRecord.job_id == job_id)
     ).scalar_one_or_none()

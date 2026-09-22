@@ -11,19 +11,13 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-# ── Model singletons (MobileNetV2 only — Pose uses context manager per call) ──
-_mobilenet_model = None   # tf.keras.Model
+_mobilenet_model = None
 
-# ── MediaPipe Pose configuration (spec requirements) ─────────────────────────
 _POSE_STATIC_IMAGE_MODE  = True
 _POSE_MODEL_COMPLEXITY   = 2
 _POSE_MIN_DETECTION_CONF = 0.5
 _POSE_MIN_TRACKING_CONF  = 0.5
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Data classes
-# ─────────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class Landmark:
@@ -47,7 +41,7 @@ class BodyCompositionResult:
     """Mirrors the fields consumed by BodyAnalysisResult / BodyComposition schemas."""
     body_fat_percentage:  float = 0.0
     v_taper_ratio:        float = 0.0
-    muscle_mass_estimate: str   = "Unknown"   # Low | Moderate | High | Very High
+    muscle_mass_estimate: str   = "Unknown"
     posture_assessment:   str   = "Unknown"
     is_valid_person:      bool  = False
     confidence:           float = 0.0
@@ -63,11 +57,7 @@ class FormResult:
     error:    Optional[str]  = None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Pipeline A — MediaPipe Pose
-# ─────────────────────────────────────────────────────────────────────────────
-
-_CRITICAL_LM_IDX = [11, 12, 23, 24, 27, 28]   # shoulders, hips, ankles
+_CRITICAL_LM_IDX = [11, 12, 23, 24, 27, 28]
 _MIN_CONFIDENCE  = 0.55
 
 
@@ -80,16 +70,13 @@ class PoseAnalyzer:
         except ImportError:
             return PoseResult(error="mediapipe not available")
 
-        # Exact loading pattern required by spec
         nparr   = np.frombuffer(image_bytes, np.uint8)
         img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img_bgr is None:
             return PoseResult(error="Could not decode image bytes")
 
-        # Convert BGR → RGB
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        # Context manager: guarantees resource release after this single image
         with mp.solutions.pose.Pose(
             static_image_mode=_POSE_STATIC_IMAGE_MODE,
             model_complexity=_POSE_MODEL_COMPLEXITY,
@@ -116,8 +103,6 @@ class PoseAnalyzer:
             error=None if confidence >= _MIN_CONFIDENCE else "Low landmark confidence",
         )
 
-    # ── joint angle helper ────────────────────────────────────────────────────
-
     @staticmethod
     def joint_angle(a: Landmark, b: Landmark, c: Landmark) -> float:
         ba = np.array([a.x - b.x, a.y - b.y])
@@ -126,14 +111,8 @@ class PoseAnalyzer:
         return float(np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0))))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Pipeline B — MobileNetV2 body composition
-# ─────────────────────────────────────────────────────────────────────────────
-
 _MOBILENET_SIZE = (224, 224)
 
-# Empirical thresholds on global-avg-pool feature magnitude → muscle category.
-# Replace with a fine-tuned softmax head when labelled data is available.
 _MUSCLE_THRESHOLDS: List[Tuple[float, str]] = [
     (0.70, "Very High"),
     (0.52, "High"),
@@ -146,8 +125,6 @@ class BodyCompositionAnalyzer:
 
     def __init__(self, pose_analyzer: PoseAnalyzer) -> None:
         self._pose = pose_analyzer
-
-    # ── lazy MobileNetV2 ──────────────────────────────────────────────────────
 
     def _model(self):
         global _mobilenet_model
@@ -168,8 +145,6 @@ class BodyCompositionAnalyzer:
             _mobilenet_model = None
         return _mobilenet_model
 
-    # ── public ────────────────────────────────────────────────────────────────
-
     def run(
         self,
         image_bytes: bytes,
@@ -187,13 +162,11 @@ class BodyCompositionAnalyzer:
             return BodyCompositionResult(is_valid_person=False,
                                          posture_assessment="Image too small")
 
-        # Stage 1 — landmark-based scalars
         pose_res = self._pose.run(image_bytes)
         body_fat, v_taper, posture, pose_conf = self._landmark_scalars(
             pose_res, user_height_cm, gender
         )
 
-        # Stage 2 — MobileNetV2 muscle category
         muscle_cat, net_conf = self._mobilenet_category(img)
 
         return BodyCompositionResult(
@@ -205,8 +178,6 @@ class BodyCompositionAnalyzer:
             confidence=round((pose_conf + net_conf) / 2, 3),
             method="MobileNetV2 + RFM",
         )
-
-    # ── Stage 1 helpers ───────────────────────────────────────────────────────
 
     def _landmark_scalars(
         self,
@@ -227,32 +198,27 @@ class BodyCompositionAnalyzer:
         l_hip, r_hip = lms[23], lms[24]
         l_ank, r_ank = lms[27], lms[28]
 
-        # Pixel-space height for calibration
         sh_mid_x = (l_sh.x + r_sh.x) / 2; sh_mid_y = (l_sh.y + r_sh.y) / 2
         an_mid_x = (l_ank.x + r_ank.x) / 2; an_mid_y = (l_ank.y + r_ank.y) / 2
         height_px = math.hypot(sh_mid_x - an_mid_x, sh_mid_y - an_mid_y)
         if height_px < 1e-6:
             return 20.0, 1.0, "Pose measurement failed", 0.0
 
-        ppc          = height_px / max(height_cm, 1.0)   # pixels per cm
+        ppc          = height_px / max(height_cm, 1.0)
         shoulder_cm  = dist(l_sh, r_sh)  / ppc
         hip_cm       = dist(l_hip, r_hip) / ppc
 
-        # Waist: midpoint between shoulder and hip → diameter → circumference
         waist_px   = dist(
             Landmark((l_sh.x + l_hip.x) / 2, (l_sh.y + l_hip.y) / 2),
             Landmark((r_sh.x + r_hip.x) / 2, (r_sh.y + r_hip.y) / 2),
         )
         waist_circ = (waist_px / ppc) * math.pi
 
-        # RFM body fat estimate (Woolcott & Bergman 2018 variant)
         rfm_k    = 64.0 if gender.lower() == "male" else 76.0
         body_fat = rfm_k - (20.0 * (height_cm / max(waist_circ, 1.0)))
 
-        # V-taper
         v_taper  = shoulder_cm / max(hip_cm, 1.0)
 
-        # Posture heuristic from shoulder tilt
         tilt = abs(l_sh.y - r_sh.y)
         if tilt > 0.05:
             posture = "Lateral tilt detected — shoulder imbalance"
@@ -262,8 +228,6 @@ class BodyCompositionAnalyzer:
             posture = "Slight forward lean — check head position"
 
         return body_fat, v_taper, posture, pose.confidence
-
-    # ── Stage 2 helper ────────────────────────────────────────────────────────
 
     def _mobilenet_category(self, img_bgr: np.ndarray) -> Tuple[str, float]:
         """MobileNetV2 feature extraction → muscle mass label + confidence."""
@@ -275,9 +239,8 @@ class BodyCompositionAnalyzer:
             rgb      = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
             resized  = cv2.resize(rgb, _MOBILENET_SIZE).astype(np.float32)
             scaled   = tf.keras.applications.mobilenet_v2.preprocess_input(resized)
-            features = model.predict(np.expand_dims(scaled, 0), verbose=0)[0]  # (1280,)
+            features = model.predict(np.expand_dims(scaled, 0), verbose=0)[0]
 
-            # Proxy: higher-layer activations correlate with structural complexity
             hi = float(np.mean(np.abs(features[640:])))
             lo = float(np.mean(np.abs(features[:640])))
             score = hi / max(hi + lo, 1e-9)
@@ -293,10 +256,6 @@ class BodyCompositionAnalyzer:
             log.warning("MobileNetV2 inference error: %s", exc)
             return "Moderate", 0.0
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Form analysis registry
-# ─────────────────────────────────────────────────────────────────────────────
 
 FormHandler = Callable[[List[Landmark], PoseAnalyzer], Tuple[Dict, List[str]]]
 
@@ -390,10 +349,6 @@ _FORM_REGISTRY: Dict[str, FormHandler] = {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Unified async facade
-# ─────────────────────────────────────────────────────────────────────────────
-
 class VisionAnalyzer:
     """
     Single async entry-point for all vision tasks.
@@ -466,7 +421,5 @@ class VisionAnalyzer:
 
         return await asyncio.to_thread(_run)
 
-
-# ── Module-level singleton ─────────────────────────────────────────────────────
 
 vision_analyzer = VisionAnalyzer()

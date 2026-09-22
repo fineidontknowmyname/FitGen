@@ -111,5 +111,4 @@ class BodyComposition(BaseModel):
         description="'full' when enough input was supplied for a reliable read, else 'partial'",
     )
 
-# Backward-compat alias so existing imports don't break
 BodyAnalysisResult = BodyComposition

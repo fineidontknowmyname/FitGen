@@ -7,7 +7,6 @@ class BodyMetrics(BaseModel):
     Produced by the TDEE/nutrition service and stored alongside a plan.
     """
 
-    # ── Body Composition Indices ───────────────────────────────────────────────
     bmi: float = Field(
         ge=10.0, le=70.0,
         description="Body Mass Index (weight_kg / height_m²)"
@@ -17,7 +16,6 @@ class BodyMetrics(BaseModel):
         description="Devine formula ideal weight in kg"
     )
 
-    # ── Energy Expenditure ─────────────────────────────────────────────────────
     bmr: float = Field(
         ge=500.0, le=6000.0,
         description="Basal Metabolic Rate in kcal/day (Mifflin-St Jeor)"
@@ -35,7 +33,6 @@ class BodyMetrics(BaseModel):
         description="Goal-adjusted daily calorie target (deficit / surplus applied to TDEE)"
     )
 
-    # ── Macronutrient Targets ──────────────────────────────────────────────────
     protein_g: float = Field(
         ge=0.0,
         description="Daily protein target in grams"
@@ -49,7 +46,6 @@ class BodyMetrics(BaseModel):
         description="Daily fat target in grams"
     )
 
-    # ── Optional Notes ─────────────────────────────────────────────────────────
     notes: Optional[str] = Field(
         None, max_length=300,
         description="e.g. 'High protein due to muscle gain goal'"

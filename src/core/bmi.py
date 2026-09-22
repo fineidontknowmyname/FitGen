@@ -6,8 +6,6 @@ from enum import Enum
 from schemas.common import Gender
 
 
-# ── WHO category enum ─────────────────────────────────────────────────────────
-
 class BMICategory(str, Enum):
     severe_thinness    = "Severe thinness"
     moderate_thinness  = "Moderate thinness"
@@ -19,16 +17,11 @@ class BMICategory(str, Enum):
     obese_class_iii    = "Obese class III"
 
 
-# ── Plan signal enum ──────────────────────────────────────────────────────────
-
 class PlanSignal(str, Enum):
-  
     green   = "green"
     caution = "caution"
     warning = "warning"
 
-
-# ── Category → PlanSignal map ─────────────────────────────────────────────────
 
 _SIGNAL_MAP: dict[BMICategory, PlanSignal] = {
     BMICategory.severe_thinness:   PlanSignal.warning,
@@ -40,8 +33,6 @@ _SIGNAL_MAP: dict[BMICategory, PlanSignal] = {
     BMICategory.obese_class_ii:    PlanSignal.warning,
     BMICategory.obese_class_iii:   PlanSignal.warning,
 }
-
-# ── Advisory notes per signal ─────────────────────────────────────────────────
 
 _SIGNAL_NOTES: dict[PlanSignal, str] = {
     PlanSignal.green: (
@@ -58,10 +49,6 @@ _SIGNAL_NOTES: dict[PlanSignal, str] = {
     ),
 }
 
-
-# ── WHo category thresholds ───────────────────────────────────────────────────
-# Stored as (upper_exclusive_bound, BMICategory) sorted ascending.
-
 _THRESHOLDS: list[tuple[float, BMICategory]] = [
     (16.00, BMICategory.severe_thinness),
     (17.00, BMICategory.moderate_thinness),
@@ -74,30 +61,25 @@ _THRESHOLDS: list[tuple[float, BMICategory]] = [
 ]
 
 
-# ── Result dataclass ───────────────────────────────────────────────────────────
-
 @dataclass(frozen=True)
 class BMIResult:
-   
     bmi:              float
     category:         BMICategory
     ideal_weight_kg:  float
-    weight_delta_kg:  float      # current_weight − ideal (positive = above ideal)
+    weight_delta_kg:  float
     plan_signal:      PlanSignal
     advisory:         str
 
 
-# ── Engine ─────────────────────────────────────────────────────────────────────
-
 class BMIEngine:
-   
+
     def compute(
         self,
         weight_kg: float,
         height_cm: float,
         gender: Gender,
     ) -> BMIResult:
-        
+
         bmi = self._bmi(weight_kg, height_cm)
         category = self._category(bmi)
         ideal = self._ideal_weight(height_cm, gender)
@@ -114,11 +96,8 @@ class BMIEngine:
             advisory=advisory,
         )
 
-    # ── Private helpers ────────────────────────────────────────────────────────
-
     @staticmethod
     def _bmi(weight_kg: float, height_cm: float) -> float:
-        """BMI = weight_kg / height_m²."""
         height_m = height_cm / 100.0
         if height_m <= 0:
             raise ValueError(f"height_cm must be positive, got {height_cm}")
@@ -126,16 +105,14 @@ class BMIEngine:
 
     @staticmethod
     def _category(bmi: float) -> BMICategory:
-        """Map a BMI value to the corresponding WHO category."""
         for upper_bound, cat in _THRESHOLDS:
             if bmi < upper_bound:
                 return cat
-        return BMICategory.obese_class_iii  # unreachable but satisfies type checker
+        return BMICategory.obese_class_iii
 
     @staticmethod
     def _ideal_weight(height_cm: float, gender: Gender) -> float:
-        
-        base_height_cm = 152.4   # 5 feet in cm
+        base_height_cm = 152.4
         inches_over    = max(0.0, height_cm - base_height_cm) / 2.54
 
         if gender == Gender.male:
@@ -146,5 +123,4 @@ class BMIEngine:
         return max(30.0, ideal)
 
 
-# Module-level singleton
 bmi_engine = BMIEngine()

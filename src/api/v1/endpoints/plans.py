@@ -12,7 +12,7 @@ GET  /plans/job/{job_id}/pdf Download PDF once job is done
 
 Legacy fix
 ──────────
-Old routes called plan_orchestrator.generate_plan(transcript_text=...) which 
+Old routes called plan_orchestrator.generate_plan(transcript_text=...) which
 no longer matches the orchestrator signature.  All new calls use youtube_urls
 and pass the full GeneratePlanRequest to the Celery task.
 """
@@ -41,8 +41,6 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 def _get_celery():
     """Lazy import so the module can be loaded without a running broker."""
     from workers.celery_app import celery_app  # noqa: F401
@@ -62,8 +60,6 @@ def _task_to_status(state: str) -> JobStatus:
     }
     return mapping.get(state.upper(), JobStatus.pending)
 
-
-# ── POST /generate  (async dispatch) ──────────────────────────────────────────
 
 @router.post(
     "/generate",
@@ -91,8 +87,6 @@ async def generate_plan(request: GeneratePlanRequest) -> JobResponse:
         log.exception("Failed to dispatch plan task: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to queue plan generation")
 
-
-# ── GET /job/{job_id}  (poll) ──────────────────────────────────────────────────
 
 @router.get(
     "/job/{job_id}",
@@ -137,8 +131,6 @@ async def get_job_status(
         return JobStatusResponse(job_id=job_id, status=fallback_status)
 
 
-# ── GET /job/{job_id}/pdf  (download PDF once done) ───────────────────────────
-
 @router.get(
     "/job/{job_id}/pdf",
     summary="Download PDF for a completed plan job",
@@ -170,7 +162,6 @@ async def get_job_pdf(
         if state != "SUCCESS":
             raise HTTPException(status_code=404, detail=f"Unknown job state: {state}")
 
-        # Reconstruct FitnessPlan and render PDF
         plan = FitnessPlan.model_validate(result_obj.result)
         from reporting.pdf_architect import pdf_architect
         pdf_bytes = pdf_architect.render_plan(plan)
@@ -187,8 +178,6 @@ async def get_job_pdf(
         log.exception("Error rendering PDF for job %s: %s", job_id, exc)
         raise HTTPException(status_code=500, detail="PDF rendering failed")
 
-
-# ── POST /generate/pdf  (legacy synchronous) ──────────────────────────────────
 
 @router.post(
     "/generate/pdf",

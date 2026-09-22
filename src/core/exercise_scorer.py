@@ -8,8 +8,6 @@ from schemas.user import UserProfile
 from schemas.common import ExperienceLevel, FitnessGoal, Equipment
 
 
-# ── Experience level → numeric tier ───────────────────────────────────────────
-
 _EXP_TIER: dict[ExperienceLevel, int] = {
     ExperienceLevel.beginner:     0,
     ExperienceLevel.intermediate: 1,
@@ -21,10 +19,6 @@ _DIFFICULTY_TIER: dict[str, int] = {
     "intermediate": 1,
     "advanced":     2,
 }
-
-# ── Goal → relevant keyword clusters ──────────────────────────────────────────
-# These keyword sets are matched against exercise names, descriptions, and
-# muscles_worked to determine semantic goal alignment.
 
 _GOAL_KEYWORDS: dict[FitnessGoal, set[str]] = {
     FitnessGoal.weight_loss: {
@@ -54,8 +48,6 @@ _GOAL_KEYWORDS: dict[FitnessGoal, set[str]] = {
     },
 }
 
-# ── Default factor weights ─────────────────────────────────────────────────────
-
 DEFAULT_WEIGHTS = {
     "difficulty_match": 0.30,
     "equipment_fit":    0.20,
@@ -65,11 +57,8 @@ DEFAULT_WEIGHTS = {
 }
 
 
-# ── Result dataclass ───────────────────────────────────────────────────────────
-
 @dataclass(order=True)
 class ScoredExercise:
-    
     score: float = field(compare=True)
     exercise: Exercise = field(compare=False)
     factor_scores: dict[str, float] = field(compare=False, default_factory=dict)
@@ -78,8 +67,6 @@ class ScoredExercise:
         return f"ScoredExercise(score={self.score:.3f}, name={self.exercise.name!r})"
 
 
-# ── Engine ─────────────────────────────────────────────────────────────────────
-
 class ExerciseScorer:
 
     def __init__(self, weights: Optional[dict[str, float]] = None):
@@ -87,20 +74,16 @@ class ExerciseScorer:
         total = sum(w.values()) or 1.0
         self.weights = {k: v / total for k, v in w.items()}
 
-    # ── Public API ─────────────────────────────────────────────────────────────
-
     def score_and_rank(
         self,
         exercises: List[Exercise],
         user_profile: UserProfile,
         top_n: Optional[int] = None,
     ) -> List[ScoredExercise]:
-       
+
         scored = [self._score_one(ex, user_profile) for ex in exercises]
         scored.sort(reverse=True)
         return scored[:top_n] if top_n is not None else scored
-
-    # ── Per-exercise scoring ───────────────────────────────────────────────────
 
     def _score_one(self, ex: Exercise, profile: UserProfile) -> ScoredExercise:
         factors = {
@@ -117,8 +100,6 @@ class ExerciseScorer:
             factor_scores={k: round(v, 4) for k, v in factors.items()},
         )
 
-    # ── Factor implementations ─────────────────────────────────────────────────
-
     @staticmethod
     def _difficulty_match(ex: Exercise, profile: UserProfile) -> float:
         user_tier = _EXP_TIER.get(profile.experience_level, 1)
@@ -130,11 +111,10 @@ class ExerciseScorer:
 
     @staticmethod
     def _equipment_fit(ex: Exercise, profile: UserProfile) -> float:
-       
         needed: List[Equipment] = getattr(ex, "equipment_needed", [])
         non_bw = [e for e in needed if e != Equipment.bodyweight]
         if not non_bw:
-            return 1.0     # purely bodyweight — always achievable
+            return 1.0
         owned = set(profile.equipment)
         matched = sum(1 for e in non_bw if e in owned)
         return matched / len(non_bw)
@@ -158,9 +138,8 @@ class ExerciseScorer:
     def _goal_alignment(ex: Exercise, goal: FitnessGoal) -> float:
         keywords = _GOAL_KEYWORDS.get(goal, set())
         if not keywords:
-            return 0.5   # neutral when no keywords defined
+            return 0.5
 
-        # Build a searchable text blob from the exercise
         blob = " ".join([
             ex.name,
             getattr(ex, "description", ""),
@@ -168,7 +147,6 @@ class ExerciseScorer:
         ]).lower()
 
         hits = sum(1 for kw in keywords if kw in blob)
-        # Soft-cap: 3 keyword hits → full alignment score
         return min(1.0, hits / 3.0)
 
     @staticmethod
@@ -177,5 +155,4 @@ class ExerciseScorer:
         return max(0.20, 1.0 - len(warnings) * 0.20)
 
 
-# Module-level singleton with default weights
 exercise_scorer = ExerciseScorer()

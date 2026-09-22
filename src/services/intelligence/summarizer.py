@@ -11,11 +11,8 @@ from core.meal_selector import MealItem, DietaryRestriction
 
 log = logging.getLogger(__name__)
 
-# ── Token cap shared with YouTubeService.TOKEN_GUARD ──────────────────────────
 _MAX_CHARS = 12_000
 
-
-# ── Video category enum ───────────────────────────────────────────────────────
 
 class VideoCategory(str, Enum):
     workout    = "workout"
@@ -23,8 +20,6 @@ class VideoCategory(str, Enum):
     motivation = "motivation"
     general    = "general"
 
-
-# ── Prompts ───────────────────────────────────────────────────────────────────
 
 _CLASSIFY_PROMPT = """\
 Classify this YouTube video transcript into EXACTLY ONE category.
@@ -85,14 +80,10 @@ Transcript:
 {text}"""
 
 
-# ── Engine ─────────────────────────────────────────────────────────────────────
-
 class SummarizerService:
 
-    # ── Primary methods ───────────────────────────────────────────────────────
-
     async def classify_video(self, transcript: str) -> VideoCategory:
-       
+
         if not transcript:
             return VideoCategory.general
 
@@ -111,21 +102,20 @@ class SummarizerService:
             return VideoCategory.general
 
     async def extract_exercises(self, transcript: str) -> ExerciseLibrary:
-       
+
         if not transcript:
             return ExerciseLibrary(exercises=[])
 
         guarded = self._guard(transcript)
 
         try:
-            # Use the dedicated extraction path on the client (json_mode=True)
             return await ollama_client.extract_exercises(guarded)
         except Exception as exc:
             log.warning("extract_exercises failed: %s", exc)
             return ExerciseLibrary(exercises=[])
 
     async def extract_meals(self, transcript: str) -> List[MealItem]:
-       
+
         if not transcript:
             return []
 
@@ -145,7 +135,7 @@ class SummarizerService:
                     try:
                         tags.add(DietaryRestriction(t))
                     except ValueError:
-                        pass   # ignore unknown tags
+                        pass
 
                 meals.append(MealItem(
                     name=str(item.get("name", "Unnamed meal")),
@@ -163,10 +153,8 @@ class SummarizerService:
             log.warning("extract_meals failed: %s", exc)
             return []
 
-    # ── Legacy shim (backward compat) ─────────────────────────────────────────
-
     async def summarize_content(self, text: str, focus: str = "general") -> str:
-        
+
         if not text:
             return "No content to summarize."
 
@@ -191,8 +179,6 @@ class SummarizerService:
 
         return "\n".join(lines)
 
-    # ── Helpers ────────────────────────────────────────────────────────────────
-
     @staticmethod
     def _guard(text: str) -> str:
         """Apply the 12k-char token guard at a word boundary."""
@@ -215,5 +201,4 @@ class SummarizerService:
         return t.strip()
 
 
-# Module-level singleton
 summarizer_service = SummarizerService()

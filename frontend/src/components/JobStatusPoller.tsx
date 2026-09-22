@@ -8,10 +8,6 @@ import { useJobStatus } from '@/hooks/useJobStatus';
 import { downloadPlanPdf } from '@/lib/api';
 import type { JobStatus } from '@/lib/api';
 
-// ---------------------------------------------------------------------------
-// Step labels shown alongside the progress bar
-// ---------------------------------------------------------------------------
-
 const PIPELINE_STEPS = [
     { label: 'Queued', statuses: ['pending'] as JobStatus[] },
     { label: 'Fetching transcript', statuses: ['running'] as JobStatus[] },
@@ -19,10 +15,6 @@ const PIPELINE_STEPS = [
     { label: 'Building plan', statuses: ['running'] as JobStatus[] },
     { label: 'Rendering PDF', statuses: ['done', 'failed'] as JobStatus[] },
 ];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function statusToProgress(status: JobStatus | null): number {
     switch (status) {
@@ -37,16 +29,12 @@ function statusToProgress(status: JobStatus | null): number {
 function activeStepIndex(status: JobStatus | null): number {
     switch (status) {
         case 'pending': return 0;
-        case 'running': return 2;   // middle of running steps
+        case 'running': return 2;
         case 'done':
         case 'failed': return PIPELINE_STEPS.length - 1;
         default: return -1;
     }
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 interface Props {
     jobId: string;
@@ -79,7 +67,6 @@ export default function JobStatusPoller({ jobId, onReset }: Props) {
 
     return (
         <div className="space-y-6">
-            {/* Progress bar */}
             <div className="space-y-2">
                 <div className="flex justify-between text-xs text-zinc-400">
                     <motion.span
@@ -115,7 +102,6 @@ export default function JobStatusPoller({ jobId, onReset }: Props) {
                 </div>
             </div>
 
-            {/* Step indicators */}
             <ol className="space-y-2">
                 {PIPELINE_STEPS.map((step, i) => {
                     const done = isTerminal ? status === 'done' && i < PIPELINE_STEPS.length
@@ -155,7 +141,6 @@ export default function JobStatusPoller({ jobId, onReset }: Props) {
                 })}
             </ol>
 
-            {/* Terminal state actions */}
             <AnimatePresence mode="wait">
                 {status === 'done' && (
                     <motion.div

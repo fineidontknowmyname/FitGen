@@ -33,8 +33,6 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 async def _fetch_or_404(user_id: str, db: AsyncSession) -> UserProfileModel:
     """Return the ORM row or raise HTTP 404."""
     result = await db.execute(
@@ -68,35 +66,26 @@ def _flatten_profile(row: UserProfileModel) -> dict:
         "id": row.user_id,
         "user_id": row.user_id,
         "email": row.email,
-        # FIX: read name directly from UserRecord.name — never derive from email
         "name": row.name,
-        # biometrics
         "age": bio.get("age"),
         "gender": bio.get("gender"),
         "weight_kg": bio.get("weight_kg"),
         "height_cm": bio.get("height_cm"),
-        # fitness
         "fitness_goal": profile.get("fitness_goal"),
         "goals": [profile.get("fitness_goal")] if profile.get("fitness_goal") else [],
         "fitness_level": profile.get("experience_level"),
         "experience_level": profile.get("experience_level"),
-        # metrics
         "pushups_max": metrics.get("pushup_count", 0),
         "squats_max": metrics.get("squat_count", 0),
         "pushup_count": metrics.get("pushup_count", 0),
         "squat_count": metrics.get("squat_count", 0),
-        # activity
         "physical_activity_hours_per_day": pa.get("physical_activity_hours_per_day"),
-        # body composition (populated after vision analysis)
         "body_fat_pct": profile.get("body_fat_pct"),
         "v_taper": profile.get("v_taper"),
         "swr_category": profile.get("swr_category"),
-        # raw profile for advanced use
         "profile": profile,
     }
 
-
-# ── GET /me  (current user — mock auth) ────────────────────────────────────────
 
 @router.get(
     "/me",
@@ -108,8 +97,6 @@ async def get_current_user_profile(
 ) -> Any:
     return _flatten_profile(current_user)
 
-
-# ── POST /  (signup — creates user account) ────────────────────────────────────
 
 @router.post(
     "/",
@@ -125,20 +112,17 @@ async def create_user_profile(
     Create a new user account.  Persists name, email, and hashed password
     to the UserRecord row, plus the full profile as JSON.
     """
-    # Check if email already exists
     existing = await db.execute(
         select(UserProfileModel).where(UserProfileModel.email == body.email)
     )
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    # Derive next ID
     from sqlalchemy import func as sa_func
     count_result = await db.execute(select(sa_func.count(UserProfileModel.id)))
     count = count_result.scalar_one()
     user_id = _next_id(count)
 
-    # Build profile_json blob from signup data
     profile_json = {
         "biometrics": {
             "age": body.age,
@@ -177,8 +161,6 @@ async def create_user_profile(
     return {"user_id": user_id, "name": body.name}
 
 
-# ── POST /login ─────────────────────────────────────────────────────────────────
-
 @router.post(
     "/login",
     summary="Authenticate user and return token",
@@ -212,8 +194,6 @@ async def login(
     }
 
 
-# ── READ ───────────────────────────────────────────────────────────────────────
-
 @router.get(
     "/{user_id}",
     response_model=UserProfile,
@@ -227,8 +207,6 @@ async def get_user_profile(
     row = await _fetch_or_404(user_id, db)
     return UserProfile.model_validate(row.profile_json)
 
-
-# ── UPDATE (full replace) ──────────────────────────────────────────────────────
 
 @router.put(
     "/{user_id}",
@@ -251,8 +229,6 @@ async def update_user_profile(
     log.info("Updated user profile  user_id=%s", user_id)
     return user_profile
 
-
-# ── DELETE ─────────────────────────────────────────────────────────────────────
 
 @router.delete(
     "/{user_id}",

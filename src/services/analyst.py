@@ -11,7 +11,7 @@ class VideoAnalyst:
         video_source can be an integer (webcam index) or file path.
         """
         cap = cv2.VideoCapture(video_source)
-        
+
         if not cap.isOpened():
             yield {"error": "Could not open video source"}
             return
@@ -21,14 +21,11 @@ class VideoAnalyst:
             if not success:
                 break
 
-            # 1. Detect Landmarks
             landmarks = landmark_detector.detect(frame)
-            
-            # 2. Analyze Form (if landmarks found)
+
             if landmarks:
                 analysis = fitness_engine.analyze_form(exercise_type, landmarks)
-                
-                # Yield result for real-time feedback
+
                 yield {
                     "frame_shape": frame.shape,
                     "has_landmarks": True,
@@ -41,7 +38,6 @@ class VideoAnalyst:
                      "analysis": None
                 }
 
-            # Allow context switch in async loop
             await asyncio.sleep(0.01)
 
         cap.release()

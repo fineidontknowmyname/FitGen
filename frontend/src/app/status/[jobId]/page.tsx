@@ -18,7 +18,6 @@ export default function JobStatusPage({ params }: Props) {
             <Header />
 
             <main className="pt-24 px-6 max-w-xl mx-auto pb-20">
-                {/* Back link */}
                 <button
                     onClick={() => router.back()}
                     className="text-zinc-500 hover:text-white text-sm flex items-center gap-1 mb-8 transition-colors"
@@ -33,7 +32,6 @@ export default function JobStatusPage({ params }: Props) {
                     </p>
                 </div>
 
-                {/* Card */}
                 <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-8">
                     <JobStatusPoller
                         jobId={jobId}

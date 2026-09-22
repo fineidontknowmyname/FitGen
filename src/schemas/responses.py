@@ -8,8 +8,6 @@ from schemas.common import MuscleLevel, BodyType
 from schemas.plan import JobStatus
 
 
-# ── Async Job Responses ────────────────────────────────────────────────────────
-
 class JobResponse(BaseModel):
 
     job_id: str = Field(
@@ -26,7 +24,7 @@ class JobResponse(BaseModel):
 
 
 class JobStatusResponse(BaseModel):
-    
+
     job_id: str = Field(description="Celery task ID")
     status: JobStatus = Field(description="Current state of the async job")
     result: Optional[Any] = Field(
@@ -42,8 +40,6 @@ class JobStatusResponse(BaseModel):
     )
 
 
-# ── Vision / Body-Composition Response ────────────────────────────────────────
-
 class BodyCompositionResponse(BaseModel):
     """
     HTTP response envelope wrapping the Gemini vision body-composition
@@ -54,7 +50,6 @@ class BodyCompositionResponse(BaseModel):
     partial or low-confidence response is still well-formed.
     """
 
-    # ── Validity & Confidence ─────────────────────────────────────────────────
     is_valid_person: bool = Field(
         default=True,
         description="False when no clear full-body shot was detected in the image"
@@ -64,7 +59,6 @@ class BodyCompositionResponse(BaseModel):
         description="Overall model confidence in this analysis (0 = low, 1 = high)"
     )
 
-    # ── Body Fat Estimate ─────────────────────────────────────────────────────
     fat_pct_low: Optional[float] = Field(
         default=None, ge=2.0, le=60.0,
         description="Lower bound of estimated body fat percentage"
@@ -74,7 +68,6 @@ class BodyCompositionResponse(BaseModel):
         description="Upper bound of estimated body fat percentage"
     )
 
-    # ── Qualitative Assessments ───────────────────────────────────────────────
     muscle_level: Optional[MuscleLevel] = Field(
         default=None,
         description="Estimated muscle mass level: low | moderate | high | very_high"
@@ -84,19 +77,16 @@ class BodyCompositionResponse(BaseModel):
         description="Estimated somatotype: ectomorph | mesomorph | endomorph"
     )
 
-    # ── Structural Ratios ─────────────────────────────────────────────────────
     v_taper_ratio: Optional[float] = Field(
         default=None, ge=0.5, le=3.0,
         description="Estimated shoulder-width / waist-width ratio (V-taper)"
     )
 
-    # ── Posture ───────────────────────────────────────────────────────────────
     posture_assessment: Optional[str] = Field(
         default=None, max_length=200,
         description="Brief posture note e.g. 'Slight anterior pelvic tilt'"
     )
 
-    # ── Narrative ─────────────────────────────────────────────────────────────
     summary: Optional[str] = Field(
         default=None, max_length=500,
         description="One-paragraph plain-English summary of the analysis"

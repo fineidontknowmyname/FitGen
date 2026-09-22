@@ -53,15 +53,11 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# ── Constants (spec requirements) ─────────────────────────────────────────────
-
-_MAX_IMAGE_BYTES       = 10 * 1024 * 1024   # 10 MB per image
-_MIN_IMAGE_DIMENSION   = 200                 # px — minimum 200×200
+_MAX_IMAGE_BYTES       = 10 * 1024 * 1024
+_MIN_IMAGE_DIMENSION   = 200
 _ALLOWED_MIME          = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 _CONSENT_HEADER        = "x-vision-consent"
 
-
-# ── Consent guard ──────────────────────────────────────────────────────────────
 
 def _require_consent(x_vision_consent: str | None) -> None:
     """Raise HTTP 451 if the caller hasn't sent the consent header."""
@@ -74,8 +70,6 @@ def _require_consent(x_vision_consent: str | None) -> None:
             ),
         )
 
-
-# ── Validation helper ──────────────────────────────────────────────────────────
 
 async def _read_image(file: UploadFile) -> bytes:
     """
@@ -112,9 +106,8 @@ async def _read_image(file: UploadFile) -> bytes:
             "Image '%s' exceeds 10 MB (%d bytes) — will use stub values",
             file.filename, len(data),
         )
-        return b""   # service will return stub with confidence=0
+        return b""
 
-    # Minimum resolution check
     nparr = np.frombuffer(data, np.uint8)
     img   = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is not None:
@@ -128,8 +121,6 @@ async def _read_image(file: UploadFile) -> bytes:
 
     return data
 
-
-# ── Endpoint ───────────────────────────────────────────────────────────────────
 
 @router.post(
     "/analyze-body",
@@ -192,19 +183,14 @@ async def analyze_body(
     hip_cm          Optional manual hip measurement — combined with the photo(s)
                     for a more accurate V-taper estimate than photo geometry alone.
     """
-    # ── Consent gate (accept from form field OR header) ────────────────────
     _require_consent(consent or x_vision_consent)
 
-    # ── Validate gender param ──────────────────────────────────────────────
     if gender.lower() not in ("male", "female"):
         raise HTTPException(
             status_code=400,
             detail="'gender' must be 'male' or 'female'.",
         )
 
-    # ── Validate & read images ─────────────────────────────────────────────
-    # _read_image returns b"" (stub) for invalid/oversized/low-res files;
-    # the service handles b"" gracefully (returns confidence=0, pose_detected=False).
     images: List[bytes] = []
 
     front_bytes = await _read_image(front)
@@ -222,8 +208,6 @@ async def analyze_body(
         len(images), user_height_cm, gender, waist_cm, hip_cm,
     )
 
-    # ── Run inference ──────────────────────────────────────────────────────
-    # Never raises — errors produce stub BodyComposition with confidence=0.0
     try:
         result = await body_composition_service.analyze(
             images=images,
@@ -234,7 +218,6 @@ async def analyze_body(
         )
     except Exception as exc:
         log.exception("Body composition analysis failed unexpectedly: %s", exc)
-        # Return stub instead of raising — spec requirement: never raise for pose failure
         return BodyComposition(
             is_valid_person=False,
             confidence=0.0,
@@ -242,7 +225,6 @@ async def analyze_body(
             posture_assessment="Analysis error — using estimated values",
         )
 
-    # Log outcome for observability
     if not result.pose_detected:
         log.info(
             "analyze-body: pose NOT detected — returning stub values  "

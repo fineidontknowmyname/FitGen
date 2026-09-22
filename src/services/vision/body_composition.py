@@ -18,23 +18,18 @@ from schemas.vision import (
 )
 from services.vision.model_loader import model_registry
 from services.vision.landmarks import (
-    Landmark,
     calculate_shoulder_waist_ratio,
+    landmark_detector,
 )
 
 log = logging.getLogger(__name__)
 
-# ── Constants ────────────────────────────────────────────────────────────────────
-
 _MOBILENET_INPUT_SIZE   = (224, 224)
-_MIN_IMAGE_DIMENSION    = 200         # px — spec requirement
-_MAX_IMAGE_BYTES        = 10 * 1024 * 1024  # 10 MB
+_MIN_IMAGE_DIMENSION    = 200
+_MAX_IMAGE_BYTES        = 10 * 1024 * 1024
 _MIN_DETECTION_CONF     = 0.50
-_MIN_TRACKING_CONF      = 0.50
-_MODEL_COMPLEXITY       = 2           # spec requirement
 _CRITICAL_LANDMARK_IDX  = [11, 12, 23, 24, 27, 28]
 
-# MobileNetV2 feature-score → MuscleLevel thresholds
 _MUSCLE_SCORE_BANDS: List[Tuple[float, MuscleLevel]] = [
     (0.70, MuscleLevel.very_high),
     (0.52, MuscleLevel.high),
@@ -42,17 +37,12 @@ _MUSCLE_SCORE_BANDS: List[Tuple[float, MuscleLevel]] = [
     (0.00, MuscleLevel.low),
 ]
 
-# V-taper ratio → BodyType heuristic
 _VTAPER_BODY_TYPE: List[Tuple[float, BodyType]] = [
-    (1.35, BodyType.mesomorph),   # broad shoulders, proportionate hips
-    (1.10, BodyType.ectomorph),   # narrower frame
-    (0.00, BodyType.endomorph),   # wider hips relative to shoulders
+    (1.35, BodyType.mesomorph),
+    (1.10, BodyType.ectomorph),
+    (0.00, BodyType.endomorph),
 ]
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Per-image result (internal)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class _ImageResult:
     """Raw scalars extracted from a single image."""
@@ -64,24 +54,14 @@ class _ImageResult:
     posture:            Optional[str]         = None
     confidence:         float                  = 0.0
     is_valid:           bool                   = False
-    # SWR fields
     shoulder_width_px:  float                  = 0.0
     waist_width_px:     float                  = 0.0
     swr:                float                  = 1.1
     swr_category:       SWRCategory            = SWRCategory.BALANCED
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Inference engine (synchronous — called from asyncio.to_thread)
-# ─────────────────────────────────────────────────────────────────────────────
-
 class _InferenceEngine:
     """All CPU-bound inference logic; designed to run in a thread pool."""
-
-    # No shared Pose handle — each call opens a context-managed instance.
-    # This guarantees static_image_mode behaviour and resource release.
-
-    # ── Preprocess image ──────────────────────────────────────────────────────
 
     def _decode(self, image_bytes: bytes) -> Optional[np.ndarray]:
         """
@@ -92,7 +72,6 @@ class _InferenceEngine:
         - Minimum 200×200 pixels (returns None + warning if too small)
         - Must be a valid image format (JPEG, PNG, WebP)
         """
-        # Size guard (spec requirement: max 10 MB)
         if len(image_bytes) > _MAX_IMAGE_BYTES:
             log.warning(
                 "Image exceeds 10 MB limit (%d bytes) — skipping, using stub values",
@@ -100,7 +79,6 @@ class _InferenceEngine:
             )
             return None
 
-        # Exact loading pattern required by spec
         nparr   = np.frombuffer(image_bytes, np.uint8)
         img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img_bgr is None:
@@ -127,8 +105,6 @@ class _InferenceEngine:
         except ImportError:
             return np.zeros((*_MOBILENET_INPUT_SIZE, 3), dtype=np.float32)
 
-    # ── MobileNetV2 feature extraction ────────────────────────────────────────
-
     def _extract_features(self, img_bgr: np.ndarray) -> Optional[np.ndarray]:
         """
         Run image through MobileNetV2 feature extractor (global avg pool).
@@ -141,7 +117,7 @@ class _InferenceEngine:
         try:
             tensor   = self._preprocess_mobilenet(img_bgr)
             batch    = np.expand_dims(tensor, axis=0)
-            features = model.predict(batch, verbose=0)[0]   # (1280,)
+            features = model.predict(batch, verbose=0)[0]
             return features.astype(np.float32)
         except Exception as exc:
             log.warning("MobileNetV2 feature extraction failed: %s", exc)
@@ -163,8 +139,6 @@ class _InferenceEngine:
 
         return level, round(min(1.0, score * 1.5), 3)
 
-    # ── MediaPipe landmark metrics ────────────────────────────────────────────
-
     def _landmark_metrics(
         self,
         img_bgr: np.ndarray,
@@ -179,30 +153,12 @@ class _InferenceEngine:
 
         _swr_defaults = (0.0, 0.0, 1.1, SWRCategory.BALANCED)
 
-        try:
-            import mediapipe as mp
-        except ImportError:
-            log.warning("mediapipe not installed — landmark-based metrics unavailable")
+        lms = landmark_detector.detect(img_bgr)
+        if lms is None:
             return None, None, None, 0.0, *_swr_defaults
 
-        # Convert BGR → RGB for MediaPipe (spec-required pattern)
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-
-        # Context manager ensures resources are released after processing one image
-        with mp.solutions.pose.Pose(
-            static_image_mode=True,
-            model_complexity=_MODEL_COMPLEXITY,
-            min_detection_confidence=_MIN_DETECTION_CONF,
-            min_tracking_confidence=_MIN_TRACKING_CONF,
-        ) as pose:
-            results = pose.process(img_rgb)
-
-        if not results.pose_landmarks:
-            return None, None, None, 0.0, *_swr_defaults
-
-        lms = results.pose_landmarks.landmark
         critical = [lms[i] for i in _CRITICAL_LANDMARK_IDX if i < len(lms)]
-        conf = sum(getattr(lm, "visibility", 1.0) for lm in critical) / max(len(critical), 1)
+        conf = sum(lm.visibility for lm in critical) / max(len(critical), 1)
         if conf < _MIN_DETECTION_CONF:
             return None, None, None, conf, *_swr_defaults
 
@@ -249,18 +205,12 @@ class _InferenceEngine:
             posture = "Slight forward lean"
 
         h, w = img_bgr.shape[:2]
-        lm_list = [
-            Landmark(x=lm.x, y=lm.y, z=lm.z, visibility=lm.visibility)
-            for lm in lms
-        ]
         sh_w_px, wa_w_px, swr_val, swr_cat = calculate_shoulder_waist_ratio(
-            lm_list, w, h,
+            lms, w, h,
         )
 
         return (fat_pct, v_taper, posture, round(conf, 3),
                 sh_w_px, wa_w_px, swr_val, swr_cat)
-
-    # ── Per-image analysis ────────────────────────────────────────────────────
 
     def analyse_one(
         self,
@@ -270,21 +220,16 @@ class _InferenceEngine:
         manual_waist_cm: Optional[float] = None,
         manual_hip_cm: Optional[float] = None,
     ) -> _ImageResult:
-        
+
         r = _ImageResult()
 
         img_bgr = self._decode(image_bytes)
         if img_bgr is None:
-            # _decode already logged a warning; return stub with confidence=0
             r.posture = "Image validation failed — using estimated values"
             return r
 
         r.is_valid = True
 
-        # Required RGB conversion (spec: img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-        # Note: _landmark_metrics does this internally before calling MediaPipe
-
-        # 1. MobileNetV2 features → muscle category
         features = self._extract_features(img_bgr)
         if features is not None:
             r.muscle_level, r.confidence = self._features_to_muscle(features)
@@ -294,7 +239,6 @@ class _InferenceEngine:
             r.confidence   = 0.0
             r.muscle_score = 0.0
 
-        # 2. Landmark metrics → fat, v-taper, posture, SWR
         (
             fat, v_taper, posture, lm_conf,
             sh_w_px, wa_w_px, swr_val, swr_cat,
@@ -311,7 +255,6 @@ class _InferenceEngine:
         r.swr               = swr_val
         r.swr_category      = swr_cat
 
-        # 3. Body type from V-taper
         if v_taper is not None:
             r.body_type = BodyType.ectomorph
             for threshold, bt in _VTAPER_BODY_TYPE:
@@ -321,10 +264,6 @@ class _InferenceEngine:
 
         return r
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Public async service
-# ─────────────────────────────────────────────────────────────────────────────
 
 class BodyCompositionService:
     def __init__(self) -> None:
@@ -348,7 +287,6 @@ class BodyCompositionService:
                 input_completeness=InputCompleteness.partial,
             )
 
-        # Process up to 3 images in parallel
         selected = images[:3]
 
         per_image: List[_ImageResult] = await asyncio.gather(
@@ -388,12 +326,9 @@ class BodyCompositionService:
             result.hip_source = "manual"
         return result
 
-    # ── Fusion helpers ─────────────────────────────────────────────────────────
-
     @staticmethod
     def _fuse(results: List[_ImageResult]) -> BodyComposition:
-        
-        # Scalars — average over images that have the value
+
         fat_vals    = [r.fat_pct  for r in results if r.fat_pct  is not None]
         vtaper_vals = [r.v_taper  for r in results if r.v_taper  is not None]
         conf_vals   = [r.confidence for r in results]
@@ -402,7 +337,6 @@ class BodyCompositionService:
         avg_vtaper = float(np.mean(vtaper_vals)) if vtaper_vals else None
         avg_conf   = float(np.mean(conf_vals))
 
-        # Uncertainty spread → fat_pct range  (±15 % of the estimate, min ±1)
         if avg_fat is not None:
             spread     = max(1.0, avg_fat * 0.15)
             fat_low    = round(max(3.0, avg_fat - spread), 1)
@@ -410,7 +344,6 @@ class BodyCompositionService:
         else:
             fat_low = fat_high = None
 
-        # Categorical — majority vote (posture included, for consistency with the rest)
         muscle_counter   = Counter(r.muscle_level for r in results if r.muscle_level)
         body_type_counter= Counter(r.body_type    for r in results if r.body_type)
         posture_counter  = Counter(r.posture      for r in results if r.posture)
@@ -422,7 +355,6 @@ class BodyCompositionService:
         muscle_conf_vals = [r.muscle_score for r in results if r.muscle_level is not None]
         avg_muscle_conf   = float(np.mean(muscle_conf_vals)) if muscle_conf_vals else 0.0
 
-        # SWR — average pixel widths and ratio; majority-vote category
         sh_px_vals  = [r.shoulder_width_px for r in results if r.shoulder_width_px > 0]
         wa_px_vals  = [r.waist_width_px    for r in results if r.waist_width_px > 0]
         swr_vals    = [r.swr               for r in results]
@@ -433,7 +365,6 @@ class BodyCompositionService:
         avg_swr    = float(np.mean(swr_vals))   if swr_vals   else 1.1
         swr_cat    = swr_counter.most_common(1)[0][0] if swr_counter else SWRCategory.BALANCED
 
-        # pose_detected = True when at least one image had successful landmark extraction
         pose_detected = any(r.fat_pct is not None for r in results)
 
         return BodyComposition(
@@ -453,7 +384,5 @@ class BodyCompositionService:
             muscle_level_confidence=round(avg_muscle_conf, 3),
         )
 
-
-# ── Module-level singleton ─────────────────────────────────────────────────────
 
 body_composition_service = BodyCompositionService()

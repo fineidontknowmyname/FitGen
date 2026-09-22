@@ -26,21 +26,18 @@ export default function LoginPage() {
                 email: string;
             };
 
-            // Save token and user data to localStorage
             localStorage.setItem('fitgen_token', data.access_token);
             const userData = {
                 user_id: data.user_id,
                 name: data.name,
                 email: data.email,
             };
-            // Merge with existing profile data if present
             const existing = (() => {
                 try { return JSON.parse(localStorage.getItem('fitgen_user') || '{}'); }
                 catch { return {}; }
             })();
             localStorage.setItem('fitgen_user', JSON.stringify({ ...existing, ...userData }));
 
-            // Redirect to dashboard (or onboarding if first time)
             const hasOnboarded = localStorage.getItem('fitgen_onboarded');
             window.location.href = hasOnboarded ? '/dashboard' : '/onboarding';
         } catch (err: unknown) {

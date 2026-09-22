@@ -1,5 +1,3 @@
-import types
-
 import numpy as np
 import pytest
 
@@ -31,16 +29,6 @@ class _FakeLandmark:
         self.visibility = visibility
 
 
-class _FakePoseLandmarks:
-    def __init__(self, landmarks):
-        self.landmark = landmarks
-
-
-class _FakePoseResults:
-    def __init__(self, landmarks):
-        self.pose_landmarks = _FakePoseLandmarks(landmarks)
-
-
 def _make_33_landmarks():
     blank = _FakeLandmark(0.5, 0.5)
     lms = [blank] * 33
@@ -53,27 +41,30 @@ def _make_33_landmarks():
     return lms
 
 
-class _FakePose:
-    def __init__(self, *args, **kwargs):
+class _FakePoseLandmarkerResult:
+    def __init__(self, landmarks):
+        self.pose_landmarks = [landmarks] if landmarks else []
+
+
+class _FakePoseLandmarker:
+    def __init__(self, landmarks):
+        self._landmarks = landmarks
+
+    def detect(self, mp_image):
+        return _FakePoseLandmarkerResult(self._landmarks)
+
+    def close(self):
         pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def process(self, img_rgb):
-        return _FakePoseResults(_make_33_landmarks())
 
 
 @pytest.fixture
 def fake_mediapipe_pose(monkeypatch):
-    import mediapipe as mp
+    from services.vision.model_loader import model_registry
 
-    fake_pose_module = types.SimpleNamespace(Pose=_FakePose)
-    fake_solutions = types.SimpleNamespace(pose=fake_pose_module)
-    monkeypatch.setattr(mp, "solutions", fake_solutions, raising=False)
+    def _fake_create_pose_landmarker():
+        return _FakePoseLandmarker(_make_33_landmarks())
+
+    monkeypatch.setattr(model_registry, "create_pose_landmarker", _fake_create_pose_landmarker)
 
 
 @pytest.fixture

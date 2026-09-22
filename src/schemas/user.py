@@ -7,7 +7,7 @@ class UserMetrics(BaseModel):
     age: int = Field(ge=15, le=60, description="Age in years")
     weight_kg: float = Field(ge=30.0, le=200.0, description="Weight in kilograms")
     height_cm: float = Field(ge=95.0, le=250.0, description="Height in centimeters")
-    gender: Gender  # male | female only
+    gender: Gender
 
 
 class StrengthMetrics(BaseModel):
@@ -36,10 +36,8 @@ class UserProfile(BaseModel):
     metrics: StrengthMetrics
     physical_activity: Optional[PhysicalActivity] = None
 
-    # Accept both "injuries" and flat injuries list
     injuries: List[Injury] = Field(default_factory=list)
 
-    # Accept both "equipment" and "equipment_available"
     equipment: List[Equipment] = Field(default_factory=list, alias="equipment")
     equipment_available: Optional[List[Equipment]] = Field(default=None, alias="equipment_available")
 
@@ -47,15 +45,12 @@ class UserProfile(BaseModel):
     fitness_goal: FitnessGoal
     analysis_consent: bool = Field(default=False)
 
-    # Accept flat physical_activity_hours_per_day at top level
     physical_activity_hours_per_day: Optional[float] = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
     def _normalize_fields(self) -> "UserProfile":
-        # Merge equipment_available → equipment if equipment is empty
         if not self.equipment and self.equipment_available:
             self.equipment = self.equipment_available
-        # Merge flat physical_activity_hours_per_day into nested physical_activity
         if self.physical_activity_hours_per_day is not None and self.physical_activity is None:
             self.physical_activity = PhysicalActivity(
                 physical_activity_hours_per_day=self.physical_activity_hours_per_day

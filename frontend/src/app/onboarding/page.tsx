@@ -91,7 +91,6 @@ export default function OnboardingPage() {
         }
         if (step < STEPS.length - 1) { setStep(p => p + 1); }
         else {
-            // ── Persist all collected data to localStorage ────────────────
             const existing = (() => {
                 try { return JSON.parse(localStorage.getItem('fitgen_user') || '{}'); }
                 catch { return {}; }
@@ -107,12 +106,9 @@ export default function OnboardingPage() {
                 experience_level: form.experience,
                 pushups_max: Number(form.pushups) || 0,
                 squats_max: Number(form.squats) || 0,
-                // FIX 7: persist activity hours (convert weekly → daily)
                 physical_activity_hours_per_day: (form.activityHoursPerWeek ?? 7) / 7,
-                // FIX 8: persist equipment and injuries
                 equipment_available: form.equipment ?? [],
                 injuries: form.injuries ?? [],
-                // Body composition from photo/tape/self-assessment (if completed)
                 ...(result ? {
                     body_fat_pct: result.fat_pct_low != null && result.fat_pct_high != null
                         ? `${result.fat_pct_low}-${result.fat_pct_high}`
@@ -137,7 +133,6 @@ export default function OnboardingPage() {
         <div className="min-h-screen bg-black text-white flex flex-col">
             <Header />
             <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-20">
-                {/* Progress */}
                 <div className="mb-12">
                     <span className="text-yellow-500 font-medium text-sm block mb-1">Step {step + 1} of {STEPS.length}</span>
                     <h1 className="font-heading text-2xl font-semibold">{STEPS[step].title}</h1>
@@ -155,7 +150,6 @@ export default function OnboardingPage() {
                             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
 
-                            {/* Step 1 — Biometrics */}
                             {step === 0 && (
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-2 gap-4">
@@ -186,7 +180,6 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 2 — Activity */}
                             {step === 1 && (
                                 <div className="space-y-6">
                                     <div className="space-y-3">
@@ -211,7 +204,6 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 3 — Baseline */}
                             {step === 2 && (
                                 <div className="space-y-6">
                                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
@@ -226,7 +218,6 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 4 — Goals */}
                             {step === 3 && (
                                 <div className="space-y-6">
                                     <div className="space-y-2">
@@ -251,7 +242,6 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 5 — Equipment & Injuries */}
                             {step === 4 && (
                                 <div className="space-y-8">
                                     <div className="space-y-3">
@@ -289,7 +279,6 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 6 — YouTube videos */}
                             {step === 5 && (
                                 <div className="space-y-4">
                                     <p className="text-sm text-zinc-400">Add YouTube workout videos. FitGen extracts exercises from captions.</p>
@@ -312,7 +301,6 @@ export default function OnboardingPage() {
                                 </div>
                             )}
 
-                            {/* Step 7 — Body Composition */}
                             {step === 6 && (
                                 <BodyCompositionStep
                                     heightCm={Number(form.height) || 175}
@@ -328,7 +316,6 @@ export default function OnboardingPage() {
                         </motion.div>
                     </AnimatePresence>
 
-                    {/* Nav */}
                     <div className="mt-10 flex justify-between pt-6 border-t border-white/5">
                         <Button variant="ghost" onClick={() => setStep(p => p - 1)}
                             disabled={step === 0} className={step === 0 ? 'invisible' : ''}>

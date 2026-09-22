@@ -17,28 +17,22 @@ from sqlalchemy.sql import func
 
 from db.base import Base
 
-# ── User account record ────────────────────────────────────────────────────────
-
 class UserRecord(Base):
-   
+
     __tablename__ = "user_records"
 
     id           = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
-    # Public-facing stable identifier (e.g. "1", "42", or a UUID string)
     user_id      = Column(String(64), unique=True, nullable=False, index=True)
 
-    # Optional auth fields — populate when JWT / auth layer is wired
     email        = Column(String(255), unique=True, nullable=True, index=True)
     hashed_password = Column(String(256), nullable=True)
     name         = Column(String(255), nullable=True)
     is_active    = Column(Boolean, default=True, nullable=False)
 
-    # Full Pydantic UserProfile stored as JSON
     profile_json = Column(JSON, nullable=True,
                           comment="Serialised UserProfile (biometrics, goals, etc.)")
 
-    # Vision consent — mirrors UserProfile.analysis_consent
     analysis_consent = Column(Boolean, default=False, nullable=False)
 
     created_at   = Column(
@@ -53,7 +47,6 @@ class UserRecord(Base):
         nullable=False,
     )
 
-    # One user → many plans
     plans = relationship(
         "FitnessPlanRecord",
         back_populates="user",
@@ -65,41 +58,31 @@ class UserRecord(Base):
         return f"<UserRecord id={self.id} user_id={self.user_id!r} email={self.email!r}>"
 
 
-# ── Fitness plan record ────────────────────────────────────────────────────────
-
 class FitnessPlanRecord(Base):
 
     __tablename__ = "fitness_plan_records"
 
     id           = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
-    # Celery task ID — also the public job_id returned to the client
     job_id       = Column(String(64), unique=True, nullable=False, index=True)
 
-    # FK to the user who requested the plan
     user_id      = Column(
         String(64),
         ForeignKey("user_records.user_id", ondelete="CASCADE"),
-        nullable=True,   # Nullable so plans can be generated without an account
+        nullable=True,
         index=True,
     )
 
-    # ── Pipeline state ──────────────────────────────────────────────────────────
-    # Mirrors Celery task states: pending | running | done | failed
     status       = Column(String(16), default="pending", nullable=False, index=True)
 
-    # Input snapshot (de-normalised for audit / replay)
     request_json = Column(JSON, nullable=True,
                           comment="Serialised GeneratePlanRequest sent by the client")
 
-    # Output
     plan_json    = Column(JSON, nullable=True,
                           comment="Serialised FitnessPlan — populated when status=done")
 
-    # Error message when status=failed
     error_detail = Column(Text, nullable=True)
 
-    # Source YouTube URLs (convenience column for analytics)
     youtube_urls = Column(JSON, nullable=True,
                           comment="List of YouTube URLs used to generate this plan")
 
@@ -110,7 +93,6 @@ class FitnessPlanRecord(Base):
     )
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Relationship back to the user
     user = relationship("UserRecord", back_populates="plans")
 
     def __repr__(self) -> str:
@@ -119,7 +101,5 @@ class FitnessPlanRecord(Base):
             f"status={self.status!r} user_id={self.user_id!r}>"
         )
 
-
-# ── Legacy alias (backward compat with users.py which imports UserProfileModel) ─
 
 UserProfileModel = UserRecord

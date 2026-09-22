@@ -2,8 +2,6 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from schemas.common import Equipment, Injury, ExperienceLevel
 
-# ── Exercise ──────────────────────────────────────────────────────────────────
-
 class Exercise(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     description: str = Field(min_length=10, max_length=500)
@@ -16,8 +14,6 @@ class Exercise(BaseModel):
 
 class ExerciseLibrary(BaseModel):
     exercises: List[Exercise]
-
-# ── Nutrition ─────────────────────────────────────────────────────────────────
 
 class MealIdea(BaseModel):
     name: str = Field(min_length=2, max_length=100, description="e.g. 'Grilled Chicken & Rice'")
@@ -36,8 +32,6 @@ class MealIdeaBank(BaseModel):
     daily_calorie_target: int = Field(ge=800, le=6000)
     daily_protein_target_g: float = Field(ge=0.0)
 
-# ── Video Intelligence ────────────────────────────────────────────────────────
-
 class VideoClassification(BaseModel):
     """Result of classifying a YouTube video by its transcript content."""
     video_url: str
@@ -49,8 +43,6 @@ class VideoClassification(BaseModel):
         default_factory=list,
         description="Main topics detected in the transcript"
     )
-
-# ── Diet Plan ─────────────────────────────────────────────────────────────────
 
 class DietDay(BaseModel):
     """A single day's structured meal plan."""
@@ -73,8 +65,6 @@ class DietPlan(BaseModel):
     )
 
 
-# ── Structured Training Schedule ──────────────────────────────────────────────
-
 class ScheduledExercise(BaseModel):
     """
     An exercise as it appears within a DailyWorkout slot.
@@ -83,21 +73,21 @@ class ScheduledExercise(BaseModel):
     """
     name: str
     sets: int = Field(ge=1, le=10)
-    reps: str                          # e.g. "4-6", "8-12", "10"
+    reps: str
     rest_seconds: int = Field(ge=0, le=300)
-    primary_muscle: str                # e.g. "Chest"
-    why_selected: str = ""             # coaching rationale
-    form_cue: str = ""                 # single most important cue
+    primary_muscle: str
+    why_selected: str = ""
+    form_cue: str = ""
 
 
 class DailyWorkout(BaseModel):
     """A single day's training — may be a training day, rest, or cardio."""
     day_number: int = Field(ge=1, le=7, description="1 = Monday … 7 = Sunday")
-    day_name: str                      # e.g. "Day 1: Upper Body — Strength"
-    focus: str                         # e.g. "Chest, Back, Shoulders"
+    day_name: str
+    focus: str
     exercises: List[ScheduledExercise] = Field(default_factory=list)
     rest_day: bool = False
-    notes: str = ""                    # e.g. "20-30 min light walking"
+    notes: str = ""
 
 
 class WeeklyPlan(BaseModel):
@@ -112,16 +102,16 @@ class WeeklyPlan(BaseModel):
 
 class PhaseGoal(BaseModel):
     """One training phase (e.g. Foundation, Development, Intensification, Deload)."""
-    phase_name: str                        # "Phase 1 — Foundation"
-    duration_weeks: int = Field(ge=1)      # 4, 4, 4, 1
-    weeks_range: str                       # "Weeks 1–4"
-    primary_focus: str                     # "Build base strength & movement patterns"
-    expected_fat_change: str               # "-0.5% body fat"
-    expected_strength_gain: str           # "+5–10% on all compound lifts"
-    expected_visible_changes: str         # "Improved posture, subtle muscle fullness"
+    phase_name: str
+    duration_weeks: int = Field(ge=1)
+    weeks_range: str
+    primary_focus: str
+    expected_fat_change: str
+    expected_strength_gain: str
+    expected_visible_changes: str
     weekly_plan: WeeklyPlan
-    cardio_protocol: str                   # "1 LISS session, 30 min, 120-140 bpm"
-    progression_rule: str                  # "Add 1 rep per exercise per week"
+    cardio_protocol: str
+    progression_rule: str
 
 
 class TransformationRoadmap(BaseModel):
@@ -131,4 +121,4 @@ class TransformationRoadmap(BaseModel):
     """
     phases: List[PhaseGoal] = Field(min_length=1)
     total_duration_weeks: int = Field(ge=1)
-    final_expected_outcome: str            # Realistic summary of 13-week end-state
+    final_expected_outcome: str

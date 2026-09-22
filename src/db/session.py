@@ -8,12 +8,9 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-# Import the shared DeclarativeBase — do NOT define a second Base here
-from db.base import Base  # noqa: F401  (re-exported so session importers still get it)
+from db.base import Base  # noqa: F401
 
 log = logging.getLogger(__name__)
-
-# ── Resolve DB URL ─────────────────────────────────────────────────────────────
 
 def _resolve_url() -> str:
     try:
@@ -26,7 +23,6 @@ def _resolve_url() -> str:
         log.info("DATABASE_URL not set — using local SQLite (koda.db)")
         return "sqlite+aiosqlite:///./koda.db"
 
-    # If the user passes a plain postgres URL, swap driver to asyncpg
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgres://"):
@@ -37,18 +33,14 @@ def _resolve_url() -> str:
 
 _DB_URL = _resolve_url()
 
-# ── Engine ─────────────────────────────────────────────────────────────────────
-
 _connect_args = {"check_same_thread": False} if "sqlite" in _DB_URL else {}
 
 engine = create_async_engine(
     _DB_URL,
-    echo=False,           # set True to log SQL (noisy in prod)
+    echo=False,
     pool_pre_ping=True,
     connect_args=_connect_args,
 )
-
-# ── Session factory ────────────────────────────────────────────────────────────
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
@@ -59,10 +51,8 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-# ── FastAPI dependency ─────────────────────────────────────────────────────────
-
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-   
+
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -70,8 +60,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
-
-# ── Startup helper ─────────────────────────────────────────────────────────────
 
 async def create_all_tables() -> None:
     """Create all ORM-mapped tables (idempotent — safe to call on every startup)."""

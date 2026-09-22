@@ -6,13 +6,9 @@ from schemas.content import Exercise
 from schemas.common import Equipment, ExperienceLevel, FitnessGoal, Injury
 
 
-# ── Master Exercise Library ────────────────────────────────────────────────────
-# 50 exercises across chest / back / legs / shoulders / arms / core / cardio
-# Each entry follows the Exercise Pydantic schema exactly.
 
 _LIBRARY: List[Exercise] = [
 
-    # ── CHEST ──────────────────────────────────────────────────────────────────
 
     Exercise(
         name="Push-Up",
@@ -107,7 +103,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Can strain wrists — use fists if needed"],
     ),
 
-    # ── BACK ───────────────────────────────────────────────────────────────────
 
     Exercise(
         name="Bodyweight Row (Inverted Row)",
@@ -202,7 +197,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Do not pull behind the neck", "Avoid swinging excessively"],
     ),
 
-    # ── LEGS ───────────────────────────────────────────────────────────────────
 
     Exercise(
         name="Bodyweight Squat",
@@ -362,7 +356,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Use a wall for balance if needed"],
     ),
 
-    # ── SHOULDERS ──────────────────────────────────────────────────────────────
 
     Exercise(
         name="Pike Push-Up",
@@ -439,7 +432,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Do not use excessive weight/band tension"],
     ),
 
-    # ── BICEPS ─────────────────────────────────────────────────────────────────
 
     Exercise(
         name="Dumbbell Bicep Curl",
@@ -501,7 +493,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Avoid swinging torso", "Keep wrists neutral"],
     ),
 
-    # ── TRICEPS ────────────────────────────────────────────────────────────────
 
     Exercise(
         name="Tricep Dip (Bench)",
@@ -564,7 +555,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Do not let elbows flare out", "Use a spotter"],
     ),
 
-    # ── CORE ───────────────────────────────────────────────────────────────────
 
     Exercise(
         name="Plank",
@@ -657,7 +647,6 @@ _LIBRARY: List[Exercise] = [
         safety_warnings=["Keep hips stacked", "Do not let them sag toward the floor"],
     ),
 
-    # ── CARDIO / FULL BODY──────────────────────────────────────────────────────
 
     Exercise(
         name="Burpee",
@@ -815,7 +804,6 @@ _LIBRARY: List[Exercise] = [
 ]
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
 
 def get_default_exercises(
     goal: FitnessGoal,
@@ -831,16 +819,12 @@ def get_default_exercises(
 
     injuries = injuries or []
 
-    # ── Step 1: equipment filter ──────────────────────────────────────────────
-    # Keep exercises whose required equipment is a subset of what the user has.
-    # Always allow Equipment.bodyweight.
     equipment_set = set(equipment) | {Equipment.bodyweight}
     equipment_filtered = [
         ex for ex in _LIBRARY
         if all(eq in equipment_set for eq in ex.equipment_needed)
     ]
 
-    # ── Step 2: injury filter (keyword-based, same logic as SafetyFilterEngine)
     if injuries:
         injury_values = {inj.value for inj in injuries}
         equipment_filtered = [
@@ -852,14 +836,10 @@ def get_default_exercises(
         ]
 
     if not equipment_filtered:
-        # Ultimate fallback — return bodyweight exercises only
         equipment_filtered = [
             ex for ex in _LIBRARY if ex.equipment_needed == [Equipment.bodyweight]
         ]
 
-    # ── Step 3: score using ExerciseScorer ────────────────────────────────────
-    # Build a minimal UserProfile for the scorer (biometrics are not needed
-    # by the scoring factors; only experience_level, equipment, and goal are).
     proxy_profile = UserProfile(
         biometrics=UserMetrics(age=25, weight_kg=70, height_cm=175, gender=Gender.male),
         metrics=StrengthMetrics(pushup_count=10, situp_count=10, squat_count=15),

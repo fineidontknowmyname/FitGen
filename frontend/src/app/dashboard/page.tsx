@@ -18,10 +18,6 @@ import {
 
 const STORAGE_KEY = 'fitgen_user';
 
-// ---------------------------------------------------------------------------
-// Dashboard page
-// ---------------------------------------------------------------------------
-
 export default function DashboardPage() {
     const router = useRouter();
     const [workoutUrls, setWorkoutUrls] = useState<string[]>(['']);
@@ -29,14 +25,11 @@ export default function DashboardPage() {
     const [submitting, setSubmitting] = useState(false);
     const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
-    // User state
     const [user, setUser] = useState<FitGenUser | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Dark mode state
     const [darkMode, setDarkMode] = useState(true);
 
-    // ── Load user data on mount ──────────────────────────────────────────
     useEffect(() => {
         if (!localStorage.getItem('fitgen_token')) {
             router.push('/login');
@@ -51,11 +44,9 @@ export default function DashboardPage() {
             try {
                 setUser(JSON.parse(stored));
             } catch {
-                // corrupted data — fall through to API
             }
         }
 
-        // Always attempt to enrich from API (silent fail is OK)
         api.get('/api/v1/users/me')
             .then(res => {
                 const merged = { ...(stored && stored !== 'true' ? JSON.parse(stored) : {}), ...res.data };
@@ -63,12 +54,10 @@ export default function DashboardPage() {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
             })
             .catch(() => {
-                // API not available — use localStorage data only
             })
             .finally(() => setLoading(false));
     }, []);
 
-    // ── Dark mode toggle ─────────────────────────────────────────────────
     const toggleDarkMode = () => {
         setDarkMode(prev => {
             const next = !prev;
@@ -77,7 +66,6 @@ export default function DashboardPage() {
         });
     };
 
-    // Multi-URL helpers
     const addUrl = (setter: React.Dispatch<React.SetStateAction<string[]>>) =>
         setter(prev => [...prev, '']);
     const removeUrl = (setter: React.Dispatch<React.SetStateAction<string[]>>, i: number) =>
@@ -98,12 +86,11 @@ export default function DashboardPage() {
                 youtube_urls: [
                     ...cleanUrls(workoutUrls),
                     ...cleanUrls(dietUrls)
-                ],   // empty array → backend uses Mode A
+                ],
             });
             setActiveJobId(job.job_id);
             router.push(`/status/${job.job_id}`);
         } catch (err) {
-            // Log the full API error detail so the 422 body is visible in console
             const axiosErr = err as { response?: { status?: number; data?: unknown } };
             if (axiosErr?.response) {
                 console.error('API error', axiosErr.response.status, axiosErr.response.data);
@@ -117,7 +104,6 @@ export default function DashboardPage() {
         }
     }, [workoutUrls, dietUrls, router, user]);
 
-    // ── Derived display values ───────────────────────────────────────────
     const displayName = user?.name ?? user?.email ?? 'User';
     const displayGoal = humanizeGoal(
         user?.fitness_goal ?? (Array.isArray(user?.goals) ? user?.goals?.[0] : user?.goals as string | undefined)
@@ -130,7 +116,6 @@ export default function DashboardPage() {
     const pushups = user?.pushups_max ?? user?.pushup_count ?? 0;
     const squats = user?.squats_max ?? user?.squat_count ?? 0;
 
-    // ── Theme classes ────────────────────────────────────────────────────
     const bg = darkMode ? 'bg-black' : 'bg-gray-50';
     const text = darkMode ? 'text-white' : 'text-gray-900';
     const textMuted = darkMode ? 'text-zinc-400' : 'text-gray-500';
@@ -151,7 +136,6 @@ export default function DashboardPage() {
             <Header />
 
             <main className="pt-24 px-6 max-w-7xl mx-auto pb-20">
-                {/* Title row */}
                 <div className="flex flex-col md:flex-row gap-8 items-start justify-between mb-12">
                     <div>
                         <h1 className="font-heading text-3xl font-semibold mb-2">My Dashboard</h1>
@@ -164,7 +148,6 @@ export default function DashboardPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
-                        {/* Dark mode toggle */}
                         <button
                             onClick={toggleDarkMode}
                             className={`p-2.5 rounded-xl border transition-all duration-200 ${darkMode
@@ -201,7 +184,6 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-8">
-                    {/* Main action card */}
                     <div className="md:col-span-2 space-y-8">
                         <section className={`p-8 rounded-2xl ${heroCard} border relative overflow-hidden group`}>
                             <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 rounded-full blur-[80px] -z-10 group-hover:bg-yellow-500/10 transition-all duration-500" />
@@ -220,9 +202,7 @@ export default function DashboardPage() {
                                 </p>
                             </div>
 
-                            {/* Dual URL inputs */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-4xl">
-                                {/* Workout Videos Section */}
                                 <div className="space-y-4">
                                     <div>
                                         <Label className="text-base flex items-center gap-2">💪 Workout Videos</Label>
@@ -261,7 +241,6 @@ export default function DashboardPage() {
                                     </button>
                                 </div>
 
-                                {/* Diet Videos Section */}
                                 <div className="space-y-4">
                                     <div>
                                         <Label className="text-base flex items-center gap-2">🥗 Diet & Nutrition Videos</Label>
@@ -319,7 +298,6 @@ export default function DashboardPage() {
                                 </Button>
                             </div>
 
-                            {/* Inline poller (appears briefly before navigation) */}
                             {activeJobId && (
                                 <div className={`mt-8 p-6 ${darkMode ? 'bg-black/30' : 'bg-gray-50'} rounded-xl border ${cardBorder}`}>
                                     <JobStatusPoller
@@ -330,7 +308,6 @@ export default function DashboardPage() {
                             )}
                         </section>
 
-                        {/* Recent Activity */}
                         <section className={`p-6 rounded-2xl ${cardBg} border ${cardBorder}`}>
                             <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
                             <div className={`flex items-center justify-center h-32 ${textDim} text-sm italic border-dashed border ${dashedBorder} rounded-lg`}>
@@ -339,7 +316,6 @@ export default function DashboardPage() {
                         </section>
                     </div>
 
-                    {/* Stats sidebar */}
                     <aside className="space-y-6">
                         <div className={`p-6 rounded-2xl ${cardBg} border ${cardBorder}`}>
                             <h3 className={`font-semibold mb-4 text-sm uppercase tracking-wider ${textDim}`}>My Stats</h3>
@@ -392,10 +368,6 @@ export default function DashboardPage() {
         </div>
     );
 }
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
 
 function StatRow({ label, value, muted }: { label: string; value: string; muted: string }) {
     return (

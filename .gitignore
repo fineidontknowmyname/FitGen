@@ -26,6 +26,7 @@ tmp/
 
 # Models (large binary files)
 src/models/
+models/
 
 # OS
 .DS_Store
@@ -45,3 +46,4 @@ API_MIGRATION.md
 BUILDER_GUIDE.md
 Documents/
 comments_log.md
+log.md

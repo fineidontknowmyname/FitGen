@@ -4,12 +4,12 @@ from services.vision.landmarks import Landmark
 
 def _landmarks_wide_shoulders() -> list[Landmark]:
     landmarks = [Landmark(0, 0, 0, 0)] * 33
-    landmarks[11] = Landmark(x=0.6, y=0.2, z=0.0, visibility=1.0)   # left shoulder
-    landmarks[12] = Landmark(x=0.4, y=0.2, z=0.0, visibility=1.0)   # right shoulder
-    landmarks[23] = Landmark(x=0.55, y=0.5, z=0.0, visibility=1.0)  # left hip
-    landmarks[24] = Landmark(x=0.45, y=0.5, z=0.0, visibility=1.0)  # right hip
-    landmarks[27] = Landmark(x=0.55, y=0.9, z=0.0, visibility=1.0)  # left ankle
-    landmarks[28] = Landmark(x=0.45, y=0.9, z=0.0, visibility=1.0)  # right ankle
+    landmarks[11] = Landmark(x=0.6, y=0.2, z=0.0, visibility=1.0)
+    landmarks[12] = Landmark(x=0.4, y=0.2, z=0.0, visibility=1.0)
+    landmarks[23] = Landmark(x=0.55, y=0.5, z=0.0, visibility=1.0)
+    landmarks[24] = Landmark(x=0.45, y=0.5, z=0.0, visibility=1.0)
+    landmarks[27] = Landmark(x=0.55, y=0.9, z=0.0, visibility=1.0)
+    landmarks[28] = Landmark(x=0.45, y=0.9, z=0.0, visibility=1.0)
     return landmarks
 
 

@@ -13,12 +13,10 @@ from schemas.content import ExerciseLibrary
 
 log = logging.getLogger(__name__)
 
-# ── Defaults (overridden by settings when the attributes exist) ────────────────
-
 _DEFAULT_BASE_URL      = "http://localhost:11435"
 _DEFAULT_MODEL         = "llama3.2"
 _DEFAULT_VISION_MODEL  = "llava"
-_REQUEST_TIMEOUT       = 180.0   # seconds — LLM generation can be slow locally
+_REQUEST_TIMEOUT       = 180.0
 
 
 def _cfg(attr: str, default: str) -> str:
@@ -26,19 +24,15 @@ def _cfg(attr: str, default: str) -> str:
     return getattr(settings, attr, default) or default
 
 
-# ── Client ─────────────────────────────────────────────────────────────────────
-
 class OllamaClient:
-    
+
     def __init__(self) -> None:
         self.base_url     = settings.effective_ollama_host.rstrip("/")
         self.model_name   = _cfg("OLLAMA_MODEL",    _DEFAULT_MODEL)
         self.vision_model = _cfg("OLLAMA_VISION_MODEL", _DEFAULT_VISION_MODEL)
 
-    # ── Public methods ─────────────────────────────────────────────────────────
-
     async def extract_exercises(self, transcript_text: str) -> ExerciseLibrary:
-       
+
         clean_text = transcript_text[:50_000]
 
         prompt = f"""You are an expert fitness data analyst.
@@ -79,7 +73,7 @@ Transcript:
             return ExerciseLibrary(exercises=[])
 
     async def analyze_image(self, image_bytes: bytes, prompt: str) -> dict:
-        
+
         try:
             raw_json = await self._generate_vision(image_bytes, prompt)
             raw_json = self._strip_markdown(raw_json)
@@ -89,7 +83,7 @@ Transcript:
             raise
 
     async def generate_text(self, prompt: str, *, json_mode: bool = False) -> str:
-       
+
         payload: dict[str, Any] = {
             "model":  self.model_name,
             "prompt": prompt,
@@ -99,8 +93,6 @@ Transcript:
             payload["format"] = "json"
 
         return await self._post_generate(payload)
-
-    # ── Private helpers ────────────────────────────────────────────────────────
 
     async def _generate_vision(self, image_bytes: bytes, prompt: str) -> str:
         """Call /api/generate with a base64-encoded image for vision models."""
@@ -115,7 +107,7 @@ Transcript:
         return await self._post_generate(payload)
 
     async def _post_generate(self, payload: dict[str, Any]) -> str:
-        
+
         url = f"{self.base_url}/api/generate"
 
         def _sync_post() -> str:
@@ -140,10 +132,6 @@ Transcript:
         return t.strip()
 
 
-# ── Module-level singleton ─────────────────────────────────────────────────────
-
 ollama_client = OllamaClient()
 
-# Backward-compat alias — callers that imported `gemini_client` by name will
-# still work without touching their import lines during a gradual migration.
 gemini_client = ollama_client

@@ -27,8 +27,6 @@ from schemas.vision import BodyComposition, SWRCategory
 from schemas.content import TransformationRoadmap, PhaseGoal, WeeklyPlan, DailyWorkout
 from schemas.common import Equipment
 
-# ── Brand palette ──────────────────────────────────────────────────────────────
-
 _KODA_BLUE    = colors.HexColor("#1A3C5E")
 _KODA_ACCENT  = colors.HexColor("#2ECC71")
 _KODA_LIGHT   = colors.HexColor("#ECF0F1")
@@ -38,16 +36,10 @@ _KODA_RED     = colors.HexColor("#E74C3C")
 _KODA_ORANGE  = colors.HexColor("#E67E22")
 _KODA_PURPLE  = colors.HexColor("#8E44AD")
 
-# ── Page geometry helpers ──────────────────────────────────────────────────────
-
 _PAGE_W, _ = A4
 _MARGIN     = 0.75 * inch
-_COL_W      = _PAGE_W - 2 * _MARGIN   # usable width
+_COL_W      = _PAGE_W - 2 * _MARGIN
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Style factory
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_styles() -> dict:
     base = getSampleStyleSheet()
@@ -120,10 +112,6 @@ def _hr(color=_KODA_MID, thickness: float = 0.5) -> HRFlowable:
     return HRFlowable(width="100%", thickness=thickness, color=color, spaceAfter=4)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 1 — Cover page
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _build_cover(plan: FitnessPlan, styles: dict) -> List:
     week_count = len(plan.weeks)
     goal_label = ""
@@ -163,10 +151,6 @@ def _build_cover(plan: FitnessPlan, styles: dict) -> List:
     return elements
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 2 — Body Metrics & Nutrition
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _bmi_category(bmi: float) -> tuple[str, object]:
     """Return (label, colour) for a BMI value."""
     if bmi < 18.5:
@@ -183,7 +167,6 @@ def _build_metrics_section(m: BodyMetrics, styles: dict) -> List:
     elements.append(Paragraph("Body Metrics &amp; Nutrition Targets", styles["section_h1"]))
     elements.append(_hr())
 
-    # ── Key metrics summary table ──────────────────────────────────────────────
     bmi_label, bmi_colour = _bmi_category(m.bmi)
 
     summary_data = [
@@ -199,23 +182,18 @@ def _build_metrics_section(m: BodyMetrics, styles: dict) -> List:
     col_widths = [2.2 * inch, 1.6 * inch, _COL_W - 3.8 * inch]
     summary_table = Table(summary_data, colWidths=col_widths)
     summary_table.setStyle(TableStyle([
-        # Header row
         ("BACKGROUND",   (0, 0), (-1, 0), _KODA_BLUE),
         ("TEXTCOLOR",    (0, 0), (-1, 0), colors.white),
         ("FONTNAME",     (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE",     (0, 0), (-1, 0), 10),
         ("BOTTOMPADDING",(0, 0), (-1, 0), 8),
         ("TOPPADDING",   (0, 0), (-1, 0), 8),
-        # Data rows — alternating
         ("BACKGROUND",   (0, 1), (-1, -1), _KODA_LIGHT),
         ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, _KODA_LIGHT]),
-        # BMI colour highlight
         ("TEXTCOLOR",    (1, 1), (1, 1), bmi_colour),
         ("FONTNAME",     (1, 1), (1, 1), "Helvetica-Bold"),
-        # Calorie target highlight
         ("TEXTCOLOR",    (1, 6), (1, 6), _KODA_BLUE),
         ("FONTNAME",     (1, 6), (1, 6), "Helvetica-Bold"),
-        # Grid
         ("GRID",         (0, 0), (-1, -1), 0.5, _KODA_MID),
         ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING",  (0, 0), (-1, -1), 8),
@@ -226,7 +204,6 @@ def _build_metrics_section(m: BodyMetrics, styles: dict) -> List:
     elements.append(summary_table)
     elements.append(Spacer(1, 0.3 * inch))
 
-    # ── Macro breakdown table ──────────────────────────────────────────────────
     total_cals = m.protein_g * 4 + m.carbs_g * 4 + m.fat_g * 9
     def _pct(kcal: float) -> str:
         return f"{kcal / total_cals * 100:.0f}%" if total_cals else "-"
@@ -250,13 +227,9 @@ def _build_metrics_section(m: BodyMetrics, styles: dict) -> List:
         ("FONTSIZE",     (0, 0), (-1, 0), 10),
         ("BOTTOMPADDING",(0, 0), (-1, 0), 8),
         ("TOPPADDING",   (0, 0), (-1, 0), 8),
-        # Protein row — green
         ("BACKGROUND",   (0, 1), (-1, 1), colors.HexColor("#EAFAF1")),
-        # Carbs row — blue-tint
         ("BACKGROUND",   (0, 2), (-1, 2), colors.HexColor("#EBF5FB")),
-        # Fats row — orange-tint
         ("BACKGROUND",   (0, 3), (-1, 3), colors.HexColor("#FEF9E7")),
-        # Total row — dark
         ("BACKGROUND",   (0, 4), (-1, 4), _KODA_LIGHT),
         ("FONTNAME",     (0, 4), (-1, 4), "Helvetica-Bold"),
         ("GRID",         (0, 0), (-1, -1), 0.5, _KODA_MID),
@@ -276,10 +249,6 @@ def _build_metrics_section(m: BodyMetrics, styles: dict) -> List:
     return elements
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 2b — Shoulder-to-Waist Ratio (body composition vision)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _build_swr_section(bc: BodyComposition, styles: dict) -> List:
     """Render the SWR sub-section when body_composition is available."""
     elements: List = []
@@ -287,7 +256,6 @@ def _build_swr_section(bc: BodyComposition, styles: dict) -> List:
     elements.append(_hr(_KODA_MID, thickness=0.3))
     elements.append(Spacer(1, 0.1 * inch))
 
-    # Main data row
     ratio_str = f"{bc.shoulder_waist_ratio:.2f}"
     cat_label = bc.swr_category.value.title()
 
@@ -296,7 +264,6 @@ def _build_swr_section(bc: BodyComposition, styles: dict) -> List:
         ["Shoulder-to-Waist Ratio", ratio_str, cat_label],
     ]
 
-    # Pick colour for the category
     if bc.swr_category == SWRCategory.OVERFAT:
         cat_colour = _KODA_RED
     elif bc.swr_category == SWRCategory.ATHLETIC:
@@ -326,16 +293,15 @@ def _build_swr_section(bc: BodyComposition, styles: dict) -> List:
     elements.append(swr_table)
     elements.append(Spacer(1, 0.12 * inch))
 
-    # Conditional interpretation text
     if bc.swr_category == SWRCategory.OVERFAT:
         elements.append(Paragraph(
-            "\u26a0 Waist wider than shoulders — extra cardio day added, "
+            "⚠ Waist wider than shoulders — extra cardio day added, "
             "core exercises prioritised.",
             styles["body"],
         ))
     elif bc.swr_category == SWRCategory.ATHLETIC:
         elements.append(Paragraph(
-            "\u2713 Good V-taper detected.",
+            "✓ Good V-taper detected.",
             styles["body"],
         ))
 
@@ -348,10 +314,6 @@ def _build_swr_section(bc: BodyComposition, styles: dict) -> List:
 
     return elements
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 3 — Diet Guidance
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_diet_section(diet_notes: str, styles: dict) -> List:
     elements: List = []
@@ -367,13 +329,11 @@ def _build_diet_section(diet_notes: str, styles: dict) -> List:
     )
     elements.append(Spacer(1, 0.15 * inch))
 
-    # Render each non-empty line as a separate paragraph (supports bullet-like formatting)
     for raw_line in diet_notes.splitlines():
         line = raw_line.strip()
         if not line:
             elements.append(Spacer(1, 0.08 * inch))
             continue
-        # Treat lines starting with '-' or '*' as soft bullets
         if line.startswith(("-", "*", "•")):
             line = "• " + line.lstrip("-*• ").strip()
         elements.append(Paragraph(line, styles["body"]))
@@ -381,10 +341,6 @@ def _build_diet_section(diet_notes: str, styles: dict) -> List:
     elements.append(PageBreak())
     return elements
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 4a — Transformation Roadmap Overview
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_roadmap_overview(roadmap: TransformationRoadmap, styles: dict) -> List:
     """Phase summary table + final expected outcome."""
@@ -400,7 +356,6 @@ def _build_roadmap_overview(roadmap: TransformationRoadmap, styles: dict) -> Lis
     ))
     elements.append(Spacer(1, 0.18 * inch))
 
-    # Phase overview table
     data = [["Phase", "Duration", "Focus", "Expected Strength Gain", "Fat Change"]]
     for phase in roadmap.phases:
         data.append([
@@ -430,16 +385,11 @@ def _build_roadmap_overview(roadmap: TransformationRoadmap, styles: dict) -> Lis
     elements.append(tbl)
     elements.append(Spacer(1, 0.2 * inch))
 
-    # Final expected outcome
     elements.append(Paragraph("13-Week Expected Outcome", styles["section_h2"]))
     elements.append(Paragraph(roadmap.final_expected_outcome, styles["body"]))
     elements.append(PageBreak())
     return elements
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 4b — Per-Phase Day-by-Day Detail
-# ─────────────────────────────────────────────────────────────────────────────
 
 _PHASE_COLOURS = [_KODA_ACCENT, _KODA_BLUE, _KODA_ORANGE, _KODA_PURPLE]
 
@@ -452,7 +402,6 @@ def _build_phase_section(phase: PhaseGoal, phase_idx: int, styles: dict) -> List
     elements.append(_hr(accent, thickness=1.5))
     elements.append(Spacer(1, 0.1 * inch))
 
-    # Phase metadata table
     meta_data = [
         ["Duration",    phase.weeks_range],
         ["Focus",       phase.primary_focus],
@@ -474,7 +423,6 @@ def _build_phase_section(phase: PhaseGoal, phase_idx: int, styles: dict) -> List
     elements.append(meta_tbl)
     elements.append(Spacer(1, 0.15 * inch))
 
-    # Expected results
     elements.append(Paragraph("Expected Results This Phase", styles["section_h2"]))
     for label, value in [
         ("Visible Changes", phase.expected_visible_changes),
@@ -483,7 +431,6 @@ def _build_phase_section(phase: PhaseGoal, phase_idx: int, styles: dict) -> List
         elements.append(Paragraph(f"<b>{label}:</b> {value}", styles["body"]))
     elements.append(Spacer(1, 0.1 * inch))
 
-    # Day-by-day
     elements.append(Paragraph("Weekly Training Schedule", styles["section_h2"]))
     elements.append(_hr(_KODA_MID, thickness=0.3))
 
@@ -491,11 +438,9 @@ def _build_phase_section(phase: PhaseGoal, phase_idx: int, styles: dict) -> List
         day_block: List = [Spacer(1, 0.06 * inch)]
 
         if day.rest_day or not day.exercises:
-            # Rest / cardio day
             day_block.append(Paragraph(day.day_name, styles["section_h3"]))
             day_block.append(Paragraph(day.notes or "Rest day.", styles["body"]))
         else:
-            # Training day
             day_block.append(Paragraph(
                 f"{day.day_name}  <font color='grey'>| Focus: {day.focus}</font>",
                 styles["section_h3"],
@@ -512,7 +457,7 @@ def _build_phase_section(phase: PhaseGoal, phase_idx: int, styles: dict) -> List
                     ex.reps,
                     str(ex.rest_seconds),
                     ex.primary_muscle,
-                    "",   # cues below the table
+                    "",
                 ])
                 if ex.form_cue:
                     cues.append(f"<b>{ex.name}:</b> {ex.form_cue}")
@@ -550,10 +495,6 @@ def _build_phase_section(phase: PhaseGoal, phase_idx: int, styles: dict) -> List
     elements.append(PageBreak())
     return elements
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 4c — Progression Rules
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_progression_rules(styles: dict) -> List:
     """One-page reference for how to progress through the plan."""
@@ -593,10 +534,6 @@ def _build_progression_rules(styles: dict) -> List:
     elements.append(PageBreak())
     return elements
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 4d — 6-Month Realistic Timeline
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_timeline_section(styles: dict) -> List:
     """Milestone-based 6-month transformation timeline."""
@@ -659,10 +596,6 @@ def _build_timeline_section(styles: dict) -> List:
     return elements
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 5 — Weekly Workout Plan  (unchanged legacy table)
-# ─────────────────────────────────────────────────────────────────────────────
-
 _WORKOUT_HDR_STYLE = TableStyle([
     ("BACKGROUND",   (0, 0), (-1, 0), _KODA_BLUE),
     ("TEXTCOLOR",    (0, 0), (-1, 0), colors.white),
@@ -703,7 +636,6 @@ def _build_workout_section(plan: FitnessPlan, styles: dict) -> List:
                 )
             )
 
-            # Header + data rows
             data = [["Exercise", "Set", "Reps", "Weight (kg)", "Rest (s)", "Notes"]]
             for workout_exercise in session.exercises:
                 ex = workout_exercise.exercise
@@ -711,10 +643,10 @@ def _build_workout_section(plan: FitnessPlan, styles: dict) -> List:
                     Equipment.bodyweight in ex.equipment_needed
                     or (bool(workout_exercise.sets) and workout_exercise.sets[0].weight_kg <= 0)
                 )
-                
+
                 for idx, wset in enumerate(workout_exercise.sets, start=1):
                     row = [
-                        ex.name if idx == 1 else "",          # show name only on first set row
+                        ex.name if idx == 1 else "",
                         str(idx),
                         str(wset.reps),
                         "BW" if is_bw else f"{wset.weight_kg:.1f}",
@@ -728,17 +660,12 @@ def _build_workout_section(plan: FitnessPlan, styles: dict) -> List:
             session_block.append(tbl)
             session_block.append(Spacer(1, 0.18 * inch))
 
-            # Keep each session together on one page where possible
             elements.append(KeepTogether(session_block))
 
         elements.append(Spacer(1, 0.35 * inch))
 
     return elements
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Public interface
-# ─────────────────────────────────────────────────────────────────────────────
 
 class PDFArchitect:
     """Assembles a multi-section FitnessPlan PDF and returns raw bytes."""
@@ -759,36 +686,27 @@ class PDFArchitect:
         styles = _build_styles()
         elements: List = []
 
-        # ── 1. Cover ───────────────────────────────────────────────────────────
         elements.extend(_build_cover(plan, styles))
 
-        # ── 2. Body Metrics ────────────────────────────────────────────────────
         if plan.body_metrics:
             elements.extend(_build_metrics_section(plan.body_metrics, styles))
 
-        # ── 2b. SWR Analysis ──────────────────────────────────────────────────
         if plan.body_composition and plan.body_composition.is_valid_person:
             elements.extend(_build_swr_section(plan.body_composition, styles))
 
-        # ── 3. Diet Guidance ───────────────────────────────────────────────────
         if plan.diet_notes and plan.diet_notes.strip():
             elements.extend(_build_diet_section(plan.diet_notes, styles))
 
-        # ── 4a. Transformation Roadmap Overview ───────────────────────────────
         if plan.roadmap:
             elements.extend(_build_roadmap_overview(plan.roadmap, styles))
 
-            # ── 4b. Per-phase day-by-day detail ───────────────────────────────
             for idx, phase in enumerate(plan.roadmap.phases):
                 elements.extend(_build_phase_section(phase, idx, styles))
 
-            # ── 4c. Progression Rules ─────────────────────────────────────────
             elements.extend(_build_progression_rules(styles))
 
-            # ── 4d. 6-Month Timeline ──────────────────────────────────────────
             elements.extend(_build_timeline_section(styles))
 
-        # ── 5. Weekly Workout Plan (legacy set-by-set table) ──────────────────
         elements.extend(_build_workout_section(plan, styles))
 
         doc.build(elements)

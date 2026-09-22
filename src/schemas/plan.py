@@ -4,8 +4,6 @@ from pydantic import BaseModel, Field, model_validator
 from schemas.content import Exercise
 from schemas.metrics import BodyMetrics
 
-# ── Workout Plan ──────────────────────────────────────────────────────────────
-
 class WorkoutSet(BaseModel):
     reps: int = Field(ge=1, le=100)
     weight_kg: float = Field(ge=0.0, le=500.0, default=0.0)
@@ -31,7 +29,6 @@ from schemas.content import TransformationRoadmap
 class FitnessPlan(BaseModel):
     title: str = Field(min_length=3, max_length=100)
     weeks: List[WeeklySchedule] = Field(min_length=1, max_length=12)
-    # ── Enrichment (populated by orchestrator; optional so backward compat is preserved)
     body_metrics: Optional[BodyMetrics] = Field(
         default=None,
         description="Computed TDEE / macro targets for this plan"
@@ -49,14 +46,11 @@ class FitnessPlan(BaseModel):
         description="4-phase transformation roadmap with weekly training plans per phase"
     )
 
-# ── Request ───────────────────────────────────────────────────────────────────
-
 from schemas.user import UserProfile
 
 class GeneratePlanRequest(BaseModel):
     user_profile: UserProfile
 
-    # ── Multi-URL support ──────────────────────────────────────────────────────
     workout_youtube_urls: Optional[List[str]] = Field(
         default=None,
         description="YouTube URLs for workout/exercise videos"
@@ -70,7 +64,6 @@ class GeneratePlanRequest(BaseModel):
         description="One or more YouTube video URLs (workout, diet, motivation, etc.). "
                     "Leave empty or omit for a profile-only standard plan (Mode A)."
     )
-    # Deprecated single-URL alias — kept for backward compat with existing API routes
     youtube_url: Optional[str] = Field(
         default=None,
         description="[Deprecated] Single YouTube URL; prefer youtube_urls."
@@ -80,7 +73,6 @@ class GeneratePlanRequest(BaseModel):
         description="Direct transcript text (used if no URLs are provided)"
     )
 
-    # ── Vision enrichment (Mode C) ─────────────────────────────────────────────
     body_composition: Optional[BodyComposition] = Field(
         default=None,
         description="Pre-computed body composition from a prior /vision/analyze-body call. "
@@ -93,8 +85,7 @@ class GeneratePlanRequest(BaseModel):
         """Merge legacy youtube_url into youtube_urls so the orchestrator sees one list."""
         if self.youtube_url and not self.youtube_urls:
             self.youtube_urls = [self.youtube_url]
-        
-        # Build combined list preserving category info backward compat
+
         all_urls = []
         if self.workout_youtube_urls:
             all_urls.extend(self.workout_youtube_urls)
@@ -104,18 +95,16 @@ class GeneratePlanRequest(BaseModel):
             for u in self.youtube_urls:
                 if u not in all_urls:
                     all_urls.append(u)
-        
+
         if all_urls:
             self.youtube_urls = all_urls
         return self
 
-# ── Async Job (Celery) ────────────────────────────────────────────────────────
-
 class JobStatus(str, Enum):
-    pending  = "pending"   # task queued, not started
-    running  = "running"   # worker has picked it up
-    done     = "done"      # completed successfully
-    failed   = "failed"    # terminated with error
+    pending  = "pending"
+    running  = "running"
+    done     = "done"
+    failed   = "failed"
 
 class JobResponse(BaseModel):
     """Returned immediately when an async plan generation is dispatched."""

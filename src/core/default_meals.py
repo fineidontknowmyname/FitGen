@@ -6,7 +6,6 @@ from typing import List
 from core.meal_selector import MealItem, DietaryRestriction
 
 
-# ── Tags shorthand ─────────────────────────────────────────────────────────────
 
 _V   = DietaryRestriction.vegetarian
 _VG  = DietaryRestriction.vegan
@@ -18,13 +17,9 @@ _H   = DietaryRestriction.halal
 _NF  = DietaryRestriction.nut_free
 
 
-# ── Master Meal Library ────────────────────────────────────────────────────────
-# 35 meals × (name, kcal, protein_g, carbs_g, fat_g, restriction_tags)
-# All macros are per-serving estimates.
 
 _LIBRARY: List[MealItem] = [
 
-    # ── BREAKFAST ──────────────────────────────────────────────────────────────
 
     MealItem(
         name="Oatmeal with Banana and Honey",
@@ -83,7 +78,6 @@ _LIBRARY: List[MealItem] = [
         restriction_tags={_V, _VG, _DF, _NF, _H},
     ),
 
-    # ── MORNING SNACK ──────────────────────────────────────────────────────────
 
     MealItem(
         name="Apple with Peanut Butter",
@@ -126,7 +120,6 @@ _LIBRARY: List[MealItem] = [
         restriction_tags={_V, _H, _NF},
     ),
 
-    # ── LUNCH ──────────────────────────────────────────────────────────────────
 
     MealItem(
         name="Grilled Chicken Breast with Brown Rice and Broccoli",
@@ -193,7 +186,6 @@ _LIBRARY: List[MealItem] = [
         restriction_tags={_V, _VG, _GF, _DF, _NF, _H},
     ),
 
-    # ── AFTERNOON SNACK ────────────────────────────────────────────────────────
 
     MealItem(
         name="Cottage Cheese with Pineapple",
@@ -236,7 +228,6 @@ _LIBRARY: List[MealItem] = [
         restriction_tags={_V, _VG, _GF, _DF, _H},
     ),
 
-    # ── DINNER ─────────────────────────────────────────────────────────────────
 
     MealItem(
         name="Grilled Salmon with Roasted Vegetables and Quinoa",
@@ -313,7 +304,6 @@ _LIBRARY: List[MealItem] = [
 ]
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
 
 def get_default_meal_pool(
     calorie_target: float,
@@ -327,7 +317,6 @@ def get_default_meal_pool(
         log.debug("No dietary restrictions — returning full meal pool (%d meals)", len(_LIBRARY))
         return list(_LIBRARY)
 
-    # Convert string restrictions to DietaryRestriction enum values (skip unknowns)
     parsed: list[DietaryRestriction] = []
     for r in restrictions:
         try:

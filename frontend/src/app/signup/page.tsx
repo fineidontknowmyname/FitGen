@@ -7,8 +7,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
-// Age must be 15–60 and gender must be male|female to match the backend UserMetrics schema
-
 export default function SignupPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -99,21 +97,18 @@ export default function SignupPage() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Name */}
                         <div>
                             <label className={labelCls}>Full Name</label>
                             <input type="text" value={name} onChange={e => setName(e.target.value)}
                                 className={inputCls} placeholder="John Doe" required />
                         </div>
 
-                        {/* Email */}
                         <div>
                             <label className={labelCls}>Email</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                                 className={inputCls} placeholder="you@example.com" required />
                         </div>
 
-                        {/* Password */}
                         <div>
                             <label className={labelCls}>Password</label>
                             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
@@ -121,7 +116,6 @@ export default function SignupPage() {
                             <p className="text-xs text-zinc-600 mt-1">Minimum 8 characters</p>
                         </div>
 
-                        {/* Age + Gender in a grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className={labelCls}>
