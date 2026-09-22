@@ -74,3 +74,19 @@ Note: `posture_assessment` was the one categorical field using `posture_vals[-1]
 ## tests/conftest.py — shared MediaPipe-mocking fixtures
 Date: 2026-09-22
 Note: `fake_mediapipe_pose`/`blank_image` were duplicated in `test_manual_measurements.py` and needed again by the new `test_body_composition_contract.py` — moved to `conftest.py` so both share one definition rather than drifting apart. `test_manual_measurements.py` updated to drop its local copies.
+
+## src/core/tape_measurement.py — Navy circumference method (Phase 2.2)
+Date: 2026-09-22
+Note: Pure function, no I/O — mirrors the existing `core/` engine style (`bmi.py`, `tdee.py`, one formula per file). `navy_body_fat_range()` adds a ±3.5% spread around the point estimate (min ±0.5 point) — that figure is the method's own published typical error versus DEXA, not an arbitrary number; it's deliberately much tighter than the photo path's ±15% band, reflecting that a measured circumference is more reliable than a pixel-estimated one. Raises `ValueError` on domain violations (`waist_cm <= neck_cm`, missing `hip_cm` for female, non-positive log10 input) rather than letting `math.log10` raise its own less-actionable `ValueError`/`domain error` — the endpoint converts this to a 422 with the message intact.
+
+## src/core/self_assessment.py — deterministic scoring rubric (Phase 2.3)
+Date: 2026-09-22
+Note: Explicitly rule-based, not a model, per the plan's own instruction ("resist the temptation to train something for 5-7 categorical inputs"). Confidence is capped at 0.60 (`_CONFIDENCE_CEILING`) per Decision 3 in `Documents/body_composition_phase0_decisions.md` — self-report gets a materially lower ceiling than tape/photo regardless of how internally consistent the answers are, and is further reduced within that ceiling by response inconsistency (population stdev across the four normalized sub-scores). `fat_pct` range comes from a coarse, explicitly approximate lookup keyed on `body_fat_impression` alone (visible abs correlates loosely with body-fat percentage) — not intended to be precise, which is why the ranges are wide.
+
+## src/schemas/body_input.py — `TapeMeasurementRequest`, `SelfAssessmentRequest` (Phase 2.2/2.3)
+Date: 2026-09-22
+Note: New file rather than adding to `schemas/vision.py` — these two requests have nothing to do with images/vision, they're the input side of the two new non-photo paths. `TapeMeasurementRequest`'s `hip_cm` is optional at the field level but enforced as required-for-female via a `model_validator`, matching the Navy method's own formula (male doesn't need hip; female does) — same pattern `UserProfile` already uses elsewhere in this codebase for conditional-required fields.
+
+## src/api/v1/endpoints/metrics.py — tape-measurement + self-assessment endpoints (Phase 2.2/2.3)
+Date: 2026-09-22
+Note: Both stateless — compute-and-return, no DB write — matching the existing `/vision/analyze-body` endpoint's own pattern (Rule 7 consistency); a persisted "body composition history" isn't part of any endpoint yet, photo included, so these two don't invent one on their own. `tape_measurement()`'s `confidence=0.85` is a deliberate, documented choice (not a placeholder): the Navy method has known, published accuracy against DEXA, materially better than a photo-geometry guess and than self-report, which is why it isn't capped anywhere near the self-assessment path's 0.60 ceiling. `muscle_level=None`/`muscle_level_confidence=0.0` for tape measurement is honest, not a gap to fill later — this path fundamentally cannot measure muscle level (no image, no visual signal at all), unlike the photo path's `None` which specifically means "no trained model file, ideally would give a real answer."
